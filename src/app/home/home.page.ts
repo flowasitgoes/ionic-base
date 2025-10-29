@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, HostListener, OnDestroy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, HostListener, OnDestroy } from '@angular/core';
 
 // 遊戲物件介面
 interface GameObject {
@@ -23,7 +23,7 @@ interface Enemy extends GameObject {
   styleUrls: ['home.page.scss'],
   standalone: false,
 })
-export class HomePage implements OnInit, OnDestroy {
+export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private canvas!: HTMLCanvasElement;
@@ -84,7 +84,6 @@ export class HomePage implements OnInit, OnDestroy {
   ngAfterViewInit() {
     setTimeout(() => {
       this.initCanvas();
-      this.setupTouchControls();
     }, 100);
   }
 
@@ -147,6 +146,11 @@ export class HomePage implements OnInit, OnDestroy {
     // 重置玩家位置
     this.player.x = this.CANVAS_WIDTH / 2 - this.player.width / 2;
     this.player.y = this.CANVAS_HEIGHT - this.player.height - 20;
+    
+    // 設置觸控控制（等待 DOM 更新後）
+    setTimeout(() => {
+      this.setupTouchControls();
+    }, 100);
     
     this.gameLoop();
   }
@@ -405,20 +409,34 @@ export class HomePage implements OnInit, OnDestroy {
     const joystickBase = document.querySelector('.joystick-base') as HTMLElement;
     
     if (joystickBase) {
+      console.log('✅ 虛擬搖桿元素找到，正在綁定觸控事件...');
+      
+      // 移除可能存在的舊事件監聽器（防止重複綁定）
+      const clonedJoystick = joystickBase.cloneNode(true) as HTMLElement;
+      joystickBase.parentNode?.replaceChild(clonedJoystick, joystickBase);
+      
+      // 重新獲取元素並綁定事件
+      const newJoystickBase = document.querySelector('.joystick-base') as HTMLElement;
+      
       // 觸摸開始
-      joystickBase.addEventListener('touchstart', (e) => this.onJoystickStart(e as TouchEvent), { passive: false });
+      newJoystickBase.addEventListener('touchstart', (e) => this.onJoystickStart(e as TouchEvent), { passive: false });
       
       // 觸摸移動
-      joystickBase.addEventListener('touchmove', (e) => this.onJoystickMove(e as TouchEvent), { passive: false });
+      newJoystickBase.addEventListener('touchmove', (e) => this.onJoystickMove(e as TouchEvent), { passive: false });
       
       // 觸摸結束
-      joystickBase.addEventListener('touchend', () => this.onJoystickEnd(), { passive: false });
-      joystickBase.addEventListener('touchcancel', () => this.onJoystickEnd(), { passive: false });
+      newJoystickBase.addEventListener('touchend', () => this.onJoystickEnd(), { passive: false });
+      newJoystickBase.addEventListener('touchcancel', () => this.onJoystickEnd(), { passive: false });
+      
+      console.log('✅ 觸控事件綁定成功！');
+    } else {
+      console.error('❌ 找不到虛擬搖桿元素 (.joystick-base)');
     }
   }
 
   // 虛擬搖桿觸摸開始
   private onJoystickStart(event: TouchEvent) {
+    console.log('🎮 搖桿觸摸開始');
     if (!this.gameStarted || this.gameOver) return;
     
     event.preventDefault();
