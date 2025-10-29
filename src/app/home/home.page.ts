@@ -43,6 +43,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   gameStarted = false;
   gameOver = false;
   score = 0;
+  lives = 5; // 生命數（5碗飯）
   showInstructionsOnStart = true; // 控制是否在開始時顯示說明
 
   // Canvas 尺寸（默認為移動端）
@@ -105,6 +106,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   private lastMoveDirection: 'horizontal' | 'vertical' | 'diagonal' | null = null;
   private engineSoundNodes: { osc: OscillatorNode; lfo: OscillatorNode; gain: GainNode } | null = null;
   private gearSoundNodes: { osc: OscillatorNode; lfo: OscillatorNode; gain: GainNode } | null = null;
+  private currentEngineType: number = 0; // 當前引擎類型（0-4）
   
   // 演唱會燈光系統
   private spotlights: Array<{x: number, y: number, radius: number, color: string, alpha: number, angle: number, speed: number}> = [];
@@ -210,6 +212,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     this.gameStarted = true;
     this.gameOver = false;
     this.score = 0;
+    this.lives = 5; // 重置生命為5
     this.bullets = [];
     this.enemies = [];
     this.enemySpawnTimer = 0;
@@ -448,28 +451,35 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     const isRightSplit = this.keys['ArrowRight'] && this.keys[' '];
     
     if (isLeftSplit || isRightSplit) {
-      // 分裂成兩顆子彈，往指定方向偏射
-      const baseSpeed = 7;
-      
-      // 隨機偏射角度（15度到45度之間，轉換為弧度）
-      const minAngle = 15 * Math.PI / 180;
-      const maxAngle = 45 * Math.PI / 180;
-      const angle1 = minAngle + Math.random() * (maxAngle - minAngle);
-      const angle2 = minAngle + Math.random() * (maxAngle - minAngle);
+      // 分裂成三顆子彈，往指定方向偏射，每顆速率不同
       
       // 根據左右方向設定偏射方向（左偏或右偏）
       const direction = isLeftSplit ? -1 : 1;
       
+      // 隨機偏射角度（10度到50度之間，轉換為弧度）
+      const minAngle = 10 * Math.PI / 180;
+      const maxAngle = 50 * Math.PI / 180;
+      
+      // 三顆子彈的隨機速度（5-9之間）
+      const speed1 = 5 + Math.random() * 4;
+      const speed2 = 5 + Math.random() * 4;
+      const speed3 = 5 + Math.random() * 4;
+      
+      // 三顆子彈的隨機角度
+      const angle1 = minAngle + Math.random() * (maxAngle - minAngle);
+      const angle2 = minAngle + Math.random() * (maxAngle - minAngle);
+      const angle3 = minAngle + Math.random() * (maxAngle - minAngle);
+      
       // 第一顆子彈
-      const velocityX1 = Math.sin(angle1) * baseSpeed * direction;
-      const velocityY1 = -Math.cos(angle1) * baseSpeed;
+      const velocityX1 = Math.sin(angle1) * speed1 * direction;
+      const velocityY1 = -Math.cos(angle1) * speed1;
       
       this.bullets.push({
         x: this.player.x + this.player.width / 2 - bulletSize.width / 2,
         y: this.player.y,
         width: bulletSize.width,
         height: bulletSize.height,
-        speed: baseSpeed,
+        speed: speed1,
         active: true,
         type: bulletType,
         color: bulletColor,
@@ -477,17 +487,17 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         velocityY: velocityY1
       });
       
-      // 第二顆子彈（稍微不同的角度）
+      // 第二顆子彈（不同速度和角度）
       const bulletColor2 = this.getRandomBulletColor(bulletType);
-      const velocityX2 = Math.sin(angle2) * baseSpeed * direction;
-      const velocityY2 = -Math.cos(angle2) * baseSpeed;
+      const velocityX2 = Math.sin(angle2) * speed2 * direction;
+      const velocityY2 = -Math.cos(angle2) * speed2;
       
       this.bullets.push({
         x: this.player.x + this.player.width / 2 - bulletSize.width / 2,
         y: this.player.y,
         width: bulletSize.width,
         height: bulletSize.height,
-        speed: baseSpeed,
+        speed: speed2,
         active: true,
         type: bulletType,
         color: bulletColor2,
@@ -495,9 +505,30 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         velocityY: velocityY2
       });
       
+      // 第三顆子彈（不同速度和角度）
+      const bulletColor3 = this.getRandomBulletColor(bulletType);
+      const velocityX3 = Math.sin(angle3) * speed3 * direction;
+      const velocityY3 = -Math.cos(angle3) * speed3;
+      
+      this.bullets.push({
+        x: this.player.x + this.player.width / 2 - bulletSize.width / 2,
+        y: this.player.y,
+        width: bulletSize.width,
+        height: bulletSize.height,
+        speed: speed3,
+        active: true,
+        type: bulletType,
+        color: bulletColor3,
+        velocityX: velocityX3,
+        velocityY: velocityY3
+      });
+      
       // 輸出提示信息
       const directionText = isLeftSplit ? '左' : '右';
-      console.log(`💥 ${directionText}分裂偏射！角度1: ${(angle1 * 180 / Math.PI).toFixed(1)}°, 角度2: ${(angle2 * 180 / Math.PI).toFixed(1)}°`);
+      console.log(`💥 ${directionText}分裂偏射（3顆）！`);
+      console.log(`   子彈1 - 角度: ${(angle1 * 180 / Math.PI).toFixed(1)}°, 速度: ${speed1.toFixed(2)}`);
+      console.log(`   子彈2 - 角度: ${(angle2 * 180 / Math.PI).toFixed(1)}°, 速度: ${speed2.toFixed(2)}`);
+      console.log(`   子彈3 - 角度: ${(angle3 * 180 / Math.PI).toFixed(1)}°, 速度: ${speed3.toFixed(2)}`);
     } else {
       // 普通直線射擊
       this.bullets.push({
@@ -684,7 +715,8 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     // 檢測玩家與敵機的碰撞
     this.enemies.forEach(enemy => {
       if (enemy.active && this.isColliding(this.player, enemy)) {
-        this.endGame();
+        enemy.active = false; // 敵機消失
+        this.playerHit(); // 玩家受傷
       }
     });
   }
@@ -695,6 +727,20 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
            obj1.x + obj1.width > obj2.x &&
            obj1.y < obj2.y + obj2.height &&
            obj1.y + obj1.height > obj2.y;
+  }
+
+  // 玩家受傷（減少一條命）
+  private playerHit() {
+    this.lives--;
+    console.log(`💥 玩家被擊中！剩餘生命: ${this.lives} 🍚`);
+    
+    // 播放受傷音效（可以添加）
+    // this.playHitSound();
+    
+    // 如果生命用完才結束遊戲
+    if (this.lives <= 0) {
+      this.endGame();
+    }
   }
 
   // 結束遊戲
@@ -1888,8 +1934,8 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         🕹️ 左下角搖桿：上下左右移動戰機<br><br>
         ⬅️ ➡️ ⬆️ ⬇️ 方向鍵：移動戰機<br><br>
         🔥 右下角按鈕 / ⎵ 空白鍵：發射子彈<br><br>
-        💥 ⬅️ + ⎵ 左鍵+空白鍵：分裂左偏射擊（2顆子彈）<br><br>
-        💥 ➡️ + ⎵ 右鍵+空白鍵：分裂右偏射擊（2顆子彈）<br><br>
+        💥 ⬅️ + ⎵ 左鍵+空白鍵：分裂左偏射擊（3顆子彈，隨機速度）<br><br>
+        💥 ➡️ + ⎵ 右鍵+空白鍵：分裂右偏射擊（3顆子彈，隨機速度）<br><br>
         🎵 射擊音符：彩色音符攻擊敵機<br><br>
         ❤️ 連續射擊3次：發射彩色愛心特殊攻擊<br><br>
         🌈 每發子彈隨機變色，讓遊戲更繽紛<br><br>
@@ -2183,54 +2229,411 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // 播放引擎聲（前後移動）
+  // 播放引擎聲（前後移動 - 5種不同的引擎聲）
   private playEngineSound() {
     if (!this.audioContext || !this.masterGain) return;
     if (this.engineSoundNodes) return; // 如果已經在播放，不重複播放
     
     try {
-      const now = this.audioContext.currentTime;
+      // 隨機選擇引擎類型（0-4）
+      this.currentEngineType = Math.floor(Math.random() * 5);
       
-      // 引擎聲（低頻轟鳴）
-      const osc = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
-      const filter = this.audioContext.createBiquadFilter();
-      const lfo = this.audioContext.createOscillator(); // 低頻振盪器製造引擎震動
-      const lfoGain = this.audioContext.createGain();
+      const engineTypes = [
+        '🛩️ 飛機引擎',
+        '🏎️ 跑車引擎', 
+        '🚜 農機引擎',
+        '🚂 火車引擎',
+        '🏍️ 摩托車引擎'
+      ];
       
-      osc.type = 'sawtooth'; // 鋸齒波模擬引擎
-      osc.frequency.setValueAtTime(80, now); // 低頻引擎聲
+      console.log(`${engineTypes[this.currentEngineType]} 啟動！`);
       
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(5, now); // 5Hz 的震動
-      
-      lfoGain.gain.setValueAtTime(15, now); // LFO 調制深度
-      
-      // 連接 LFO 到主振盪器頻率
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-      
-      // 低通濾波器製造悶悶的引擎感
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(300, now);
-      filter.Q.setValueAtTime(3, now);
-      
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.1, now + 0.1); // 淡入
-      
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.masterGain);
-      
-      osc.start(now);
-      lfo.start(now);
-      
-      // 保存節點以便後續停止
-      this.engineSoundNodes = { osc, lfo, gain };
+      // 根據類型調用不同的引擎聲生成器
+      switch(this.currentEngineType) {
+        case 0:
+          this.playAircraftEngine();
+          break;
+        case 1:
+          this.playCarEngine();
+          break;
+        case 2:
+          this.playTractorEngine();
+          break;
+        case 3:
+          this.playTrainEngine();
+          break;
+        case 4:
+          this.playMotorcycleEngine();
+          break;
+      }
       
     } catch (error) {
       console.error('❌ 播放引擎聲失敗:', error);
     }
+  }
+  
+  // 🛩️ 飛機引擎（噴射渦輪聲 - 高頻空間感）
+  private playAircraftEngine() {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // 主引擎（渦輪高頻）
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, now); // 較高頻率
+    
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(8, now); // 8Hz 渦輪抖動
+    lfoGain.gain.setValueAtTime(25, now);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    
+    // 帶通濾波器製造空氣感
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(800, now);
+    filter.Q.setValueAtTime(2, now);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.15);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    
+    // === 空間效果：延遲製造演唱會空間感 ===
+    const delay = this.audioContext.createDelay();
+    const delayGain = this.audioContext.createGain();
+    const feedbackGain = this.audioContext.createGain();
+    
+    delay.delayTime.setValueAtTime(0.15, now); // 150ms 延遲
+    delayGain.gain.setValueAtTime(0.4, now); // 延遲音量
+    feedbackGain.gain.setValueAtTime(0.3, now); // 回饋量
+    
+    gain.connect(delay);
+    delay.connect(delayGain);
+    delayGain.connect(this.masterGain);
+    
+    // 回饋迴路
+    delay.connect(feedbackGain);
+    feedbackGain.connect(delay);
+    
+    // 直接輸出（乾音）
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    lfo.start(now);
+    
+    this.engineSoundNodes = { osc, lfo, gain };
+  }
+  
+  // 🏎️ 跑車引擎（V8 引擎聲 - 中頻飽滿）
+  private playCarEngine() {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // V8 引擎主音
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+    
+    osc.type = 'square'; // 方波模擬爆裂聲
+    osc.frequency.setValueAtTime(100, now);
+    
+    lfo.type = 'triangle';
+    lfo.frequency.setValueAtTime(12, now); // 12Hz 活塞運動
+    lfoGain.gain.setValueAtTime(30, now);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    
+    // 低通濾波器
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(400, now);
+    filter.Q.setValueAtTime(5, now); // 高Q值製造共鳴
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.12);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    
+    // === 空間效果：混響製造車庫/演唱會空間感 ===
+    const convolver = this.audioContext.createConvolver();
+    const convolverGain = this.audioContext.createGain();
+    
+    // 創建簡單的混響脈衝響應
+    const reverbBuffer = this.createReverbBuffer(1.5, 0.6); // 1.5秒混響
+    convolver.buffer = reverbBuffer;
+    convolverGain.gain.setValueAtTime(0.5, now);
+    
+    gain.connect(convolver);
+    convolver.connect(convolverGain);
+    convolverGain.connect(this.masterGain);
+    
+    // 直接輸出
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    lfo.start(now);
+    
+    this.engineSoundNodes = { osc, lfo, gain };
+  }
+  
+  // 🚜 農機引擎（柴油引擎 - 低頻重擊）
+  private playTractorEngine() {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // 柴油引擎
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(60, now); // 超低頻
+    
+    lfo.type = 'square'; // 方波製造突突突的柴油感
+    lfo.frequency.setValueAtTime(4, now); // 4Hz 慢速
+    lfoGain.gain.setValueAtTime(20, now);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    
+    // 低通濾波器
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, now);
+    filter.Q.setValueAtTime(8, now); // 超高Q值製造沉重感
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.2); // 慢啟動
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    
+    // === Bass電吉他效果層 ===
+    const bassOsc = this.audioContext.createOscillator();
+    const bassGain = this.audioContext.createGain();
+    const bassFilter = this.audioContext.createBiquadFilter();
+    
+    bassOsc.type = 'sine';
+    bassOsc.frequency.setValueAtTime(40, now); // 超低音
+    
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.setValueAtTime(120, now);
+    
+    bassGain.gain.setValueAtTime(0, now);
+    bassGain.gain.linearRampToValueAtTime(0.12, now + 0.2);
+    
+    bassOsc.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(this.masterGain);
+    
+    bassOsc.start(now);
+    
+    // === 空間效果：延遲 ===
+    const delay = this.audioContext.createDelay();
+    const delayGain = this.audioContext.createGain();
+    
+    delay.delayTime.setValueAtTime(0.25, now); // 250ms 延遲
+    delayGain.gain.setValueAtTime(0.3, now);
+    
+    gain.connect(delay);
+    delay.connect(delayGain);
+    delayGain.connect(this.masterGain);
+    
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    lfo.start(now);
+    
+    this.engineSoundNodes = { osc, lfo, gain };
+  }
+  
+  // 🚂 火車引擎（蒸汽引擎 - 超低頻震動）
+  private playTrainEngine() {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // 蒸汽引擎主音
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(45, now); // 極低頻
+    
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(2.5, now); // 2.5Hz 慢速震動
+    lfoGain.gain.setValueAtTime(12, now);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(150, now);
+    filter.Q.setValueAtTime(10, now); // 極高Q值
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.25); // 慢啟動
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    
+    // === Sub Bass層（電bass模擬）===
+    const subBass = this.audioContext.createOscillator();
+    const subGain = this.audioContext.createGain();
+    
+    subBass.type = 'sine';
+    subBass.frequency.setValueAtTime(30, now); // 30Hz 超低音
+    
+    subGain.gain.setValueAtTime(0, now);
+    subGain.gain.linearRampToValueAtTime(0.15, now + 0.25);
+    
+    subBass.connect(subGain);
+    subGain.connect(this.masterGain);
+    
+    subBass.start(now);
+    
+    // === 空間效果：大型空間混響 ===
+    const convolver = this.audioContext.createConvolver();
+    const convolverGain = this.audioContext.createGain();
+    
+    const reverbBuffer = this.createReverbBuffer(3.0, 0.7); // 3秒長混響
+    convolver.buffer = reverbBuffer;
+    convolverGain.gain.setValueAtTime(0.6, now); // 較多混響
+    
+    gain.connect(convolver);
+    convolver.connect(convolverGain);
+    convolverGain.connect(this.masterGain);
+    
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    lfo.start(now);
+    
+    this.engineSoundNodes = { osc, lfo, gain };
+  }
+  
+  // 🏍️ 摩托車引擎（高能量引擎 - 明亮有力）
+  private playMotorcycleEngine() {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // 摩托車引擎
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, now); // 中高頻
+    
+    lfo.type = 'square';
+    lfo.frequency.setValueAtTime(15, now); // 15Hz 高速震動
+    lfoGain.gain.setValueAtTime(40, now);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    
+    // 帶通濾波器製造明亮感
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(600, now);
+    filter.Q.setValueAtTime(4, now);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.08); // 快速啟動
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    
+    // === 高頻泛音層（增加金屬感）===
+    const harmonicOsc = this.audioContext.createOscillator();
+    const harmonicGain = this.audioContext.createGain();
+    const harmonicFilter = this.audioContext.createBiquadFilter();
+    
+    harmonicOsc.type = 'square';
+    harmonicOsc.frequency.setValueAtTime(240, now); // 二倍頻
+    
+    harmonicFilter.type = 'highpass';
+    harmonicFilter.frequency.setValueAtTime(1000, now);
+    
+    harmonicGain.gain.setValueAtTime(0, now);
+    harmonicGain.gain.linearRampToValueAtTime(0.08, now + 0.08);
+    
+    harmonicOsc.connect(harmonicFilter);
+    harmonicFilter.connect(harmonicGain);
+    harmonicGain.connect(this.masterGain);
+    
+    harmonicOsc.start(now);
+    
+    // === 空間效果：立體聲延遲 ===
+    const delay1 = this.audioContext.createDelay();
+    const delay2 = this.audioContext.createDelay();
+    const delayGain1 = this.audioContext.createGain();
+    const delayGain2 = this.audioContext.createGain();
+    
+    delay1.delayTime.setValueAtTime(0.1, now); // 100ms
+    delay2.delayTime.setValueAtTime(0.18, now); // 180ms
+    delayGain1.gain.setValueAtTime(0.35, now);
+    delayGain2.gain.setValueAtTime(0.25, now);
+    
+    gain.connect(delay1);
+    gain.connect(delay2);
+    delay1.connect(delayGain1);
+    delay2.connect(delayGain2);
+    delayGain1.connect(this.masterGain);
+    delayGain2.connect(this.masterGain);
+    
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    lfo.start(now);
+    
+    this.engineSoundNodes = { osc, lfo, gain };
+  }
+  
+  // 創建混響緩衝（用於演唱會空間感）
+  private createReverbBuffer(duration: number, decay: number): AudioBuffer {
+    const sampleRate = this.audioContext!.sampleRate;
+    const length = sampleRate * duration;
+    const buffer = this.audioContext!.createBuffer(2, length, sampleRate);
+    const leftChannel = buffer.getChannelData(0);
+    const rightChannel = buffer.getChannelData(1);
+    
+    for (let i = 0; i < length; i++) {
+      // 指數衰減
+      const envelope = Math.pow(1 - i / length, decay * 3);
+      
+      // 白噪音 + 衰減
+      leftChannel[i] = (Math.random() * 2 - 1) * envelope;
+      rightChannel[i] = (Math.random() * 2 - 1) * envelope;
+      
+      // 添加早期反射（模擬牆壁反射）
+      if (i < sampleRate * 0.05) { // 前50ms
+        const reflectionEnvelope = 1 - i / (sampleRate * 0.05);
+        leftChannel[i] += (Math.random() * 2 - 1) * reflectionEnvelope * 0.5;
+        rightChannel[i] += (Math.random() * 2 - 1) * reflectionEnvelope * 0.5;
+      }
+    }
+    
+    return buffer;
   }
   
   // 停止移動音效

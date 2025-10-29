@@ -2,13 +2,19 @@
   <div class="game-container">
     <!-- 遊戲信息欄 -->
     <div class="game-info">
-      <div class="score">得分: {{ score }}</div>
-      <div class="status" *ngIf="!gameStarted && !gameOver">
-        <ion-button color="success" (click)="startGame()">
-          開始遊戲
-        </ion-button>
+      <div class="info-left">
+        <div class="score">得分: {{ score }}</div>
+        <div class="status" *ngIf="!gameStarted && !gameOver">
+          <ion-button color="success" (click)="startGame()">
+            開始遊戲
+          </ion-button>
+        </div>
+        <div class="status game-running" *ngIf="gameStarted && !gameOver">遊戲進行中</div>
       </div>
-      <div class="status" *ngIf="gameStarted && !gameOver">遊戲進行中</div>
+      <div class="lives">
+        <span class="lives-label">生命:</span>
+        <span class="bowl" *ngFor="let life of [].constructor(lives)">🍚</span>
+      </div>
     </div>
 
     <!-- 遊戲畫布 -->

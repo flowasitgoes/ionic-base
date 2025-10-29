@@ -29,19 +29,27 @@
 
 .game-info {
   width: 100%;
-  max-width: 400px;
+  max-width: 500px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 15px;
+  padding: 15px 20px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   backdrop-filter: blur(10px);
+  gap: 20px;
+}
+
+.info-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
 }
 
 .score {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
   color: #FFEB3B;
   text-shadow: 
@@ -49,6 +57,7 @@
     0 0 20px rgba(255, 235, 59, 0.5),
     2px 2px 4px rgba(0, 0, 0, 0.5);
   animation: scoreGlow 2s ease-in-out infinite;
+  white-space: nowrap;
 }
 
 @keyframes scoreGlow {
@@ -67,9 +76,63 @@
 }
 
 .status {
-  font-size: 16px;
+  font-size: 14px;
   color: #fff;
   font-weight: 500;
+  white-space: nowrap;
+  
+  &.game-running {
+    font-size: 16px;
+  }
+  
+  ion-button {
+    --padding-start: 15px;
+    --padding-end: 15px;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+    font-size: 14px;
+    margin: 0;
+  }
+}
+
+// 生命顯示
+.lives {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  
+  .lives-label {
+    font-size: 16px;
+    font-weight: bold;
+    color: #FF6B6B;
+    text-shadow: 
+      0 0 8px rgba(255, 107, 107, 0.8),
+      0 0 15px rgba(255, 107, 107, 0.5);
+    margin-right: 5px;
+  }
+  
+  .bowl {
+    font-size: 28px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    animation: bowlBounce 3s ease-in-out infinite;
+    display: inline-block;
+    
+    &:nth-child(2) { animation-delay: 0.1s; }
+    &:nth-child(3) { animation-delay: 0.2s; }
+    &:nth-child(4) { animation-delay: 0.3s; }
+    &:nth-child(5) { animation-delay: 0.4s; }
+    &:nth-child(6) { animation-delay: 0.5s; }
+  }
+}
+
+@keyframes bowlBounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.1);
+  }
 }
 
 .canvas-wrapper {
@@ -484,11 +547,28 @@ ion-header {
 @media (max-width: 480px) {
   .game-info {
     flex-direction: column;
+    gap: 12px;
+    padding: 12px 15px;
+  }
+  
+  .info-left {
+    flex-direction: column;
     gap: 10px;
+    width: 100%;
+    align-items: flex-start;
   }
 
   .score {
-    font-size: 20px;
+    font-size: 18px;
+  }
+  
+  .lives {
+    width: 100%;
+    justify-content: center;
+    
+    .bowl {
+      font-size: 24px;
+    }
   }
 
   #gameCanvas {
