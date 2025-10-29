@@ -1,11 +1,3 @@
-<ion-header [translucent]="true">
-  <ion-toolbar color="dark">
-    <ion-title>
-      ✈️ 飛機射擊遊戲
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content [fullscreen]="true">
   <div class="game-container">
     <!-- 遊戲信息欄 -->
@@ -41,21 +33,6 @@
           <span>🔥</span>
         </div>
       </div>
-    </div>
-
-    <!-- 遊戲說明 -->
-    <div class="game-instructions" *ngIf="!gameStarted && !gameOver">
-      <ion-card>
-        <ion-card-header>
-          <ion-card-title>遊戲說明</ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <p>⬅️ ➡️ 左右方向鍵：移動戰機</p>
-          <p>⎵ 空白鍵：發射子彈</p>
-          <p>🎯 目標：消滅敵機獲得分數</p>
-          <p>⚠️ 避免與敵機碰撞</p>
-        </ion-card-content>
-      </ion-card>
     </div>
 
     <!-- 遊戲結束畫面 -->
