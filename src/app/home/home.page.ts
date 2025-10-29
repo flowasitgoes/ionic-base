@@ -94,7 +94,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
 
   // 移動步數追踪和閃光效果
   private verticalMoveCount = 0; // 上下移動步數計數器
+  private horizontalMoveCount = 0; // 左右移動步數計數器
   private lastPlayerY = 0; // 記錄上一幀的 Y 位置
+  private lastPlayerX = 0; // 記錄上一幀的 X 位置
   private isGlowing = false; // 是否正在發光（金光）
   private glowIntensity = 0; // 發光強度（0-1）
   private glowPhase = 0; // 發光動畫相位
@@ -102,6 +104,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   private lastGlowTriggerTime = 0; // 上次觸發金光的時間
   private readonly GLOW_COOLDOWN_MOBILE = 2000; // 移動端金光冷卻時間（毫秒）- 更長
   private readonly GLOW_COOLDOWN_DESKTOP = 800; // 桌面端金光冷卻時間（毫秒）
+  private lastRippleTriggerTime = 0; // 上次觸發光圈的時間
   
   // 银光效果（连续打到水晶触发）
   private crystalHitCount = 0; // 連續打到水晶的計數器
@@ -423,10 +426,13 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     
     // 重置移動和閃光相關變數
     this.verticalMoveCount = 0;
+    this.horizontalMoveCount = 0;
     this.lastPlayerY = this.player.y;
+    this.lastPlayerX = this.player.x;
     this.isGlowing = false;
     this.glowIntensity = 0;
     this.glowPhase = 0;
+    this.lastRippleTriggerTime = 0;
     
     // 重置銀光相關變數
     this.crystalHitCount = 0;
@@ -571,25 +577,51 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
+    // 追踪左右移動（用於光圈漣漪）
+    const xDiff = Math.abs(this.player.x - this.lastPlayerX);
+    const xMoveThreshold = this.isMobile ? 2 : 1; // 移動端需要更大的移動量
+    
+    if (xDiff > xMoveThreshold) {
+      this.horizontalMoveCount++;
+      this.lastPlayerX = this.player.x;
+      
+      // 左右移動時創建光圈漣漪（有冷卻時間，避免太頻繁）
+      const currentTime = Date.now();
+      const rippleCooldown = this.isMobile ? 500 : 200; // 移動端冷卻更長
+      const timeSinceLastRipple = currentTime - this.lastRippleTriggerTime;
+      
+      if (this.horizontalMoveCount >= 2 && timeSinceLastRipple >= rippleCooldown) {
+        // 創建光圈漣漪（桌面端創建更多）
+        const rippleCount = this.isMobile ? 1 : 2;
+        for (let i = 0; i < rippleCount; i++) {
+          setTimeout(() => {
+            this.createRipple();
+          }, i * 80);
+        }
+        this.lastRippleTriggerTime = currentTime;
+        this.horizontalMoveCount = 0; // 重置計數器
+      }
+    }
+    
     // 追踪上下移動步數（移動端降低敏感度）
     const yDiff = Math.abs(this.player.y - this.lastPlayerY);
-    const moveThreshold = this.isMobile ? 2 : 1; // 移動端需要更大的移動量才計數
+    const yMoveThreshold = this.isMobile ? 2 : 1; // 移動端需要更大的移動量才計數
     
-    if (yDiff > moveThreshold) {
+    if (yDiff > yMoveThreshold) {
       this.verticalMoveCount++;
       this.lastPlayerY = this.player.y;
       
       // 添加拖尾粒子
       this.addTrailParticles();
       
-      // 當移動步數達到閾值且冷卻時間已過時，觸發閃光效果
+      // 當移動步數達到閾值且冷卻時間已過時，觸發閃光效果（金光）
       const currentTime = Date.now();
-      const cooldown = this.isMobile ? this.GLOW_COOLDOWN_MOBILE : this.GLOW_COOLDOWN_DESKTOP;
+      const glowCooldown = this.isMobile ? this.GLOW_COOLDOWN_MOBILE : this.GLOW_COOLDOWN_DESKTOP;
       const timeSinceLastGlow = currentTime - this.lastGlowTriggerTime;
       
       if (this.verticalMoveCount >= this.MOVE_THRESHOLD && 
           !this.isGlowing && 
-          timeSinceLastGlow >= cooldown) {
+          timeSinceLastGlow >= glowCooldown) {
         this.isGlowing = true;
         this.glowIntensity = 1.0;
         this.lastGlowTriggerTime = currentTime;
@@ -599,7 +631,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
           this.createShockwave();
         }
         
-        // 創建光圈漣漪（移動端只創建1個）
+        // 創建光圈漣漪（移動端只創建1個，桌面端創建3個）
         const rippleCount = this.isMobile ? 1 : 3;
         for (let i = 0; i < rippleCount; i++) {
           setTimeout(() => {
