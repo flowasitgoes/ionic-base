@@ -121,6 +121,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   // 音效系統
   private audioContext: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  audioContextState: string = '未初始化'; // 用於顯示音頻狀態（public，供模板使用）
   private lastMoveDirection: 'horizontal' | 'vertical' | 'diagonal' | null = null;
   private engineSoundNodes: { osc: OscillatorNode; lfo: OscillatorNode; gain: GainNode } | null = null;
   private gearSoundNodes: { osc: OscillatorNode; lfo: OscillatorNode; gain: GainNode } | null = null;
@@ -174,19 +175,33 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   // 從入口頁面進入遊戲
-  enterGame() {
+  async enterGame() {
     this.showWelcomeScreen = false;
     
     // 初始化音頻系統（需要用戶交互才能在iOS上工作）
     this.initAudio();
     
-    // iOS Safari 需要顯式啟動 AudioContext
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume().then(() => {
-        console.log('🔊 音頻上下文已啟動 (iOS兼容)');
-      }).catch(err => {
+    // iOS Safari 關鍵：立即啟動 AudioContext（必須在用戶交互事件中）
+    if (this.audioContext) {
+      try {
+        await this.audioContext.resume();
+        this.audioContextState = this.audioContext.state; // 更新狀態顯示
+        console.log('✅ 音頻上下文已啟動！狀態:', this.audioContext.state);
+        
+        // 播放一個靜音測試，確保音頻系統真正啟動
+        const testOsc = this.audioContext.createOscillator();
+        const testGain = this.audioContext.createGain();
+        testGain.gain.value = 0; // 靜音
+        testOsc.connect(testGain);
+        testGain.connect(this.audioContext.destination);
+        testOsc.start();
+        testOsc.stop(this.audioContext.currentTime + 0.01);
+        
+        console.log('✅ 音頻測試完成，系統已就緒');
+      } catch (err) {
         console.error('❌ 啟動音頻上下文失敗:', err);
-      });
+        this.audioContextState = '啟動失敗';
+      }
     }
     
     // 等待一下讓DOM更新
@@ -279,12 +294,17 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // 開始遊戲
-  startGame() {
+  async startGame() {
     // 確保音頻上下文已啟動（iOS 兼容性）
     if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume().then(() => {
-        console.log('🔊 音頻上下文已在 startGame 中啟動');
-      });
+      try {
+        await this.audioContext.resume();
+        this.audioContextState = this.audioContext.state; // 更新狀態顯示
+        console.log('✅ 音頻上下文已在 startGame 中啟動，狀態:', this.audioContext.state);
+      } catch (err) {
+        console.error('❌ startGame 中啟動音頻失敗:', err);
+        this.audioContextState = '啟動失敗';
+      }
     }
     
     this.gameStarted = true;
@@ -2294,6 +2314,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         this.masterGain = this.audioContext.createGain();
         this.masterGain.gain.value = 0.3; // 主音量設為 30%
         this.masterGain.connect(this.audioContext.destination);
+        this.audioContextState = this.audioContext.state; // 更新狀態顯示
         console.log('🔊 音效系統初始化成功，狀態:', this.audioContext.state);
         
         // iOS Safari 需要在用戶交互中顯式啟動
@@ -2302,13 +2323,42 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         }
       } catch (error) {
         console.error('❌ 音效系統初始化失敗:', error);
+        this.audioContextState = '初始化失敗';
       }
     }
   }
   
+  // 確保音頻上下文已啟動（iOS Safari 關鍵修復）
+  private async ensureAudioContextRunning(): Promise<boolean> {
+    if (!this.audioContext) {
+      console.warn('⚠️ AudioContext 未初始化');
+      return false;
+    }
+    
+    if (this.audioContext.state === 'suspended') {
+      try {
+        await this.audioContext.resume();
+        console.log('✅ AudioContext 已啟動 (狀態:', this.audioContext.state, ')');
+        return true;
+      } catch (error) {
+        console.error('❌ 無法啟動 AudioContext:', error);
+        return false;
+      }
+    }
+    
+    return this.audioContext.state === 'running';
+  }
+  
   // 播放遊戲開始音效（上升的合成器音階）
-  private playGameStartSound() {
+  private async playGameStartSound() {
     if (!this.audioContext || !this.masterGain) return;
+    
+    // iOS Safari 關鍵：確保音頻上下文正在運行
+    const isRunning = await this.ensureAudioContextRunning();
+    if (!isRunning) {
+      console.warn('⚠️ AudioContext 未運行，無法播放開始音效');
+      return;
+    }
     
     try {
       const now = this.audioContext.currentTime;
@@ -2347,6 +2397,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   // 播放射擊音效（合成吉他拨弦聲）
   private playShootSound() {
     if (!this.audioContext || !this.masterGain) return;
+    
+    // iOS Safari：確保音頻上下文正在運行（不阻塞，異步處理）
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(err => console.error('Resume 失敗:', err));
+      return; // 第一次調用時跳過，下次再播放
+    }
     
     try {
       const now = this.audioContext.currentTime;
@@ -2506,6 +2562,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.audioContext || !this.masterGain) return;
     if (this.gearSoundNodes) return; // 如果已經在播放，不重複播放
     
+    // iOS Safari：確保音頻上下文正在運行
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(err => console.error('Resume 失敗:', err));
+      return;
+    }
+    
     try {
       const now = this.audioContext.currentTime;
       
@@ -2548,6 +2610,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   private playEngineSound() {
     if (!this.audioContext || !this.masterGain) return;
     if (this.engineSoundNodes) return; // 如果已經在播放，不重複播放
+    
+    // iOS Safari：確保音頻上下文正在運行
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(err => console.error('Resume 失敗:', err));
+      return;
+    }
     
     try {
       // 隨機選擇引擎類型（0-4）
@@ -3220,6 +3288,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   private startBackgroundMusic() {
     if (!this.audioContext || !this.masterGain) return;
     if (this.bgMusicNodes) return; // 如果已經在播放，不重複
+    
+    // iOS Safari：確保音頻上下文正在運行
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(err => console.error('Resume 失敗:', err));
+      return;
+    }
     
     try {
       const now = this.audioContext.currentTime;

@@ -107,6 +107,43 @@
   }
 }
 
+.audio-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  white-space: nowrap;
+  
+  .audio-icon {
+    font-size: 14px;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+    
+    &.active {
+      opacity: 1;
+      animation: audioIconPulse 2s ease-in-out infinite;
+    }
+  }
+  
+  .audio-text {
+    font-size: 10px;
+    text-transform: capitalize;
+  }
+}
+
+@keyframes audioIconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 // 生命顯示
 .lives {
   display: flex;
@@ -558,28 +595,31 @@ ion-header {
 // 響應式設計
 @media (max-width: 480px) {
   .game-info {
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 15px;
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 12px;
   }
   
   .info-left {
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
-    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+    flex: 1;
+    align-items: center;
   }
 
   .score {
-    font-size: 18px;
+    font-size: 16px;
   }
   
   .lives {
-    width: 100%;
-    justify-content: center;
+    flex-shrink: 0;
+    
+    .lives-label {
+      font-size: 14px;
+    }
     
     .bowl {
-      font-size: 24px;
+      font-size: 20px;
     }
   }
 

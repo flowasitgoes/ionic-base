@@ -46,7 +46,12 @@
             GO
           </ion-button>
         </div>
-        <div class="status game-running" *ngIf="gameStarted && !gameOver">遊戲進行中</div>
+        <div class="audio-status" *ngIf="!gameStarted && !gameOver">
+          <span class="audio-icon" [class.active]="audioContextState === 'running'">
+            {{ audioContextState === 'running' ? '🔊' : '🔇' }}
+          </span>
+          <span class="audio-text">{{ audioContextState || '未初始化' }}</span>
+        </div>
       </div>
       <div class="lives">
         <span class="lives-label">生命:</span>
