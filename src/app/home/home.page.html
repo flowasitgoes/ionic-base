@@ -1,12 +1,44 @@
 <ion-content [fullscreen]="true">
+  <!-- 入口頁面 -->
+  <div class="welcome-overlay" *ngIf="showWelcomeScreen">
+    <div class="welcome-content">
+      <div class="welcome-header">
+        <h1 class="welcome-title">🎮 遊戲說明</h1>
+      </div>
+      
+      <div class="welcome-instructions">
+        <div class="instruction-item">
+          <span class="instruction-icon">🕹️</span>
+          <span class="instruction-text">左下角搖桿：上下左右移動戰機</span>
+        </div>
+        
+        <div class="instruction-item">
+          <span class="instruction-icon">⬆️⬇️</span>
+          <span class="instruction-text">方向鍵：移動戰機</span>
+        </div>
+        
+        <div class="instruction-item">
+          <span class="instruction-icon">🔥</span>
+          <span class="instruction-text">右下角按鈕／空白鍵：發射子彈</span>
+        </div>
+        
+        
+      </div>
+      
+      <button class="welcome-enter-btn" (click)="enterGame()">
+        開始遊戲
+      </button>
+    </div>
+  </div>
+  
   <div class="game-container">
     <!-- 遊戲信息欄 -->
     <div class="game-info">
       <div class="info-left">
         <div class="score">得分: {{ score }}</div>
         <div class="status" *ngIf="!gameStarted && !gameOver">
-          <ion-button color="success" (click)="startGame()">
-            開始遊戲
+          <ion-button class="go-button" color="success" (click)="startGame()">
+            GO
           </ion-button>
         </div>
         <div class="status game-running" *ngIf="gameStarted && !gameOver">遊戲進行中</div>

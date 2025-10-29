@@ -45,6 +45,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   score = 0;
   lives = 5; // 生命數（5碗飯）
   showInstructionsOnStart = true; // 控制是否在開始時顯示說明
+  showWelcomeScreen = true; // 控制入口頁面顯示
 
   // Canvas 尺寸（默認為移動端）
   private CANVAS_WIDTH = 400;
@@ -90,10 +91,23 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   // 移動步數追踪和閃光效果
   private verticalMoveCount = 0; // 上下移動步數計數器
   private lastPlayerY = 0; // 記錄上一幀的 Y 位置
-  private isGlowing = false; // 是否正在發光
+  private isGlowing = false; // 是否正在發光（金光）
   private glowIntensity = 0; // 發光強度（0-1）
   private glowPhase = 0; // 發光動畫相位
   private readonly MOVE_THRESHOLD = 3; // 觸發閃光的移動步數閾值
+  
+  // 银光效果（连续打到水晶触发）
+  private crystalHitCount = 0; // 連續打到水晶的計數器
+  private lastHitTime = 0; // 上次打到水晶的時間
+  private isSilverGlowing = false; // 是否正在發銀光
+  private silverGlowIntensity = 0; // 銀光強度（0-1）
+  private silverGlowPhase = 0; // 銀光動畫相位
+  private readonly CRYSTAL_HIT_THRESHOLD = 3; // 觸發銀光的連續打擊閾值
+  private readonly CRYSTAL_HIT_TIMEOUT = 2000; // 連續打擊超時時間（毫秒）
+  
+  // 金光和银光重叠控制
+  private bothGlowsStartTime = 0; // 兩種光同時存在的開始時間
+  private readonly MAX_OVERLAP_TIME = 4000; // 最大重疊時間（3-5秒之間，這裡設置4秒）
   
   // 增強視覺特效
   private shockwaves: Array<{radius: number, alpha: number, maxRadius: number}> = []; // 震動波陣列
@@ -128,10 +142,20 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     setTimeout(() => {
       this.initCanvas();
-      // 在Canvas初始化後顯示遊戲說明
-      if (this.showInstructionsOnStart) {
-        this.showGameInstructions();
-      }
+      // 入口頁面會顯示說明，不需要在這裡彈窗
+    }, 100);
+  }
+  
+  // 從入口頁面進入遊戲
+  enterGame() {
+    this.showWelcomeScreen = false;
+    
+    // 初始化音頻系統（需要用戶交互才能在iOS上工作）
+    this.initAudio();
+    
+    // 等待一下讓DOM更新
+    setTimeout(() => {
+      console.log('✅ 已從入口頁面進入遊戲，音頻系統已初始化');
     }, 100);
   }
 
@@ -229,6 +253,14 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     this.glowIntensity = 0;
     this.glowPhase = 0;
     
+    // 重置銀光相關變數
+    this.crystalHitCount = 0;
+    this.lastHitTime = 0;
+    this.isSilverGlowing = false;
+    this.silverGlowIntensity = 0;
+    this.silverGlowPhase = 0;
+    this.bothGlowsStartTime = 0;
+    
     // 重置射擊計數器
     this.shootCount = 0;
     
@@ -244,8 +276,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     this.colorCycle = 0;
     this.beatPhase = 0;
     
-    // 初始化音效系統並播放開始音效
-    this.initAudio();
+    // 播放開始音效（音頻系統已在enterGame中初始化）
     this.playGameStartSound();
     
     // 啟動背景音樂和演唱會燈光
@@ -393,7 +424,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // 更新閃光效果
+    // 更新金光效果
     if (this.isGlowing) {
       this.glowPhase += 0.2; // 動畫速度加快
       
@@ -407,6 +438,56 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         this.glowPhase = 0;
         this.verticalMoveCount = 0; // 重置計數器
       }
+    }
+    
+    // 更新銀光效果
+    if (this.isSilverGlowing) {
+      this.silverGlowPhase += 0.2; // 動畫速度
+      
+      // 銀光強度逐漸減弱
+      this.silverGlowIntensity -= 0.008;
+      
+      // 銀光結束
+      if (this.silverGlowIntensity <= 0) {
+        this.isSilverGlowing = false;
+        this.silverGlowIntensity = 0;
+        this.silverGlowPhase = 0;
+        this.crystalHitCount = 0; // 重置水晶打擊計數
+      }
+    }
+    
+    // 控制金光和銀光的重疊時間
+    if (this.isGlowing && this.isSilverGlowing) {
+      const currentTime = Date.now();
+      
+      // 記錄兩個光效同時開始的時間
+      if (this.bothGlowsStartTime === 0) {
+        this.bothGlowsStartTime = currentTime;
+        console.log('🌟 金光和銀光同時出現！');
+      }
+      
+      // 檢查是否超過最大重疊時間（隨機3-5秒，這裡用4秒）
+      const elapsedTime = currentTime - this.bothGlowsStartTime;
+      if (elapsedTime > this.MAX_OVERLAP_TIME) {
+        // 隨機選擇結束其中一個光效
+        if (Math.random() < 0.5) {
+          // 結束金光
+          this.isGlowing = false;
+          this.glowIntensity = 0;
+          this.glowPhase = 0;
+          console.log('⚠️ 重疊時間到達，金光消失！');
+        } else {
+          // 結束銀光
+          this.isSilverGlowing = false;
+          this.silverGlowIntensity = 0;
+          this.silverGlowPhase = 0;
+          console.log('⚠️ 重疊時間到達，銀光消失！');
+        }
+        this.bothGlowsStartTime = 0; // 重置重疊時間
+      }
+    } else {
+      // 如果不是同時存在，重置重疊計時器
+      this.bothGlowsStartTime = 0;
     }
     
     // 更新震動波
@@ -708,6 +789,29 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
           bullet.active = false;
           enemy.active = false;
           this.score += 10;
+          
+          // 如果打到的是水晶，增加連續打擊計數
+          if (enemy.type === 'crystal') {
+            const currentTime = Date.now();
+            
+            // 檢查是否在超時時間內
+            if (currentTime - this.lastHitTime < this.CRYSTAL_HIT_TIMEOUT) {
+              this.crystalHitCount++;
+            } else {
+              // 超時，重置計數
+              this.crystalHitCount = 1;
+            }
+            
+            this.lastHitTime = currentTime;
+            
+            // 當連續打擊達到閾值時，觸發銀光效果
+            if (this.crystalHitCount >= this.CRYSTAL_HIT_THRESHOLD) {
+              this.isSilverGlowing = true;
+              this.silverGlowIntensity = 1.0;
+              
+              console.log('✨ 銀色閃光效果觸發！連續打擊水晶：', this.crystalHitCount);
+            }
+          }
         }
       });
     });
@@ -815,6 +919,11 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     // 繪製金色閃光效果（在吉他下層）
     if (this.isGlowing && this.glowIntensity > 0) {
       this.drawGoldenGlow(centerX, y + height / 2);
+    }
+    
+    // 繪製銀色閃光效果（在吉他下層）
+    if (this.isSilverGlowing && this.silverGlowIntensity > 0) {
+      this.drawSilverGlow(centerX, y + height / 2);
     }
     
     // ============ 電吉他琴身 - 液態金屬風格 ============
@@ -1307,6 +1416,118 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.moveTo(centerX, centerY);
       this.ctx.lineTo(sx, sy);
       this.ctx.stroke();
+    }
+  }
+
+  // 繪製銀色閃光效果（連續打到水晶觸發）
+  private drawSilverGlow(centerX: number, centerY: number) {
+    const baseRadius = 40;
+    const maxRadius = 80;
+    
+    // 計算脈動半徑（更平滑的脈動）
+    const pulse = Math.sin(this.silverGlowPhase) * 0.25 + 0.75; // 0.5 - 1.0 之間脈動
+    const currentRadius = baseRadius + (maxRadius - baseRadius) * (1 - this.silverGlowIntensity);
+    
+    // 繪製多層銀光光暈
+    for (let i = 6; i >= 0; i--) {
+      const layerRadius = currentRadius * pulse * (1 + i * 0.18);
+      const layerAlpha = this.silverGlowIntensity * 0.2 * (1 - i * 0.12);
+      
+      // 銀色漸變光暈（更豐富的銀色）
+      const gradient = this.ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, layerRadius
+      );
+      
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${layerAlpha * 0.9})`); // 白色中心
+      gradient.addColorStop(0.2, `rgba(230, 230, 250, ${layerAlpha * 0.8})`); // 淡紫銀色
+      gradient.addColorStop(0.4, `rgba(192, 192, 192, ${layerAlpha * 0.7})`); // 銀色
+      gradient.addColorStop(0.6, `rgba(169, 169, 169, ${layerAlpha * 0.5})`); // 深銀色
+      gradient.addColorStop(0.8, `rgba(211, 211, 211, ${layerAlpha * 0.3})`); // 淺銀色
+      gradient.addColorStop(1, 'rgba(192, 192, 192, 0)'); // 透明
+      
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, layerRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+    
+    // 繪製旋轉的銀色粒子（反方向旋轉以區分金光）
+    const particleCount = 12;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (-this.silverGlowPhase * 1.5 + (i * Math.PI * 2) / particleCount); // 反方向旋轉
+      const distance = baseRadius * pulse * 1.3;
+      const px = centerX + Math.cos(angle) * distance;
+      const py = centerY + Math.sin(angle) * distance;
+      const particleSize = 4 * this.silverGlowIntensity;
+      
+      // 銀色粒子核心
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${this.silverGlowIntensity * 0.9})`;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, particleSize * 0.6, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 銀色粒子
+      this.ctx.fillStyle = `rgba(192, 192, 192, ${this.silverGlowIntensity * 0.8})`;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, particleSize, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 粒子光暈
+      const particleGradient = this.ctx.createRadialGradient(px, py, 0, px, py, particleSize * 3);
+      particleGradient.addColorStop(0, `rgba(230, 230, 250, ${this.silverGlowIntensity * 0.6})`);
+      particleGradient.addColorStop(0.5, `rgba(211, 211, 211, ${this.silverGlowIntensity * 0.3})`);
+      particleGradient.addColorStop(1, 'rgba(192, 192, 192, 0)');
+      this.ctx.fillStyle = particleGradient;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, particleSize * 3, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+    
+    // 添加外圈銀色星光效果（菱形形狀）
+    const starCount = 8;
+    for (let i = 0; i < starCount; i++) {
+      const angle = (-this.silverGlowPhase * 2 + (i * Math.PI * 2) / starCount); // 反方向旋轉
+      const distance = currentRadius * pulse * 1.1;
+      const sx = centerX + Math.cos(angle) * distance;
+      const sy = centerY + Math.sin(angle) * distance;
+      
+      // 繪製銀色星光射線
+      this.ctx.strokeStyle = `rgba(230, 230, 250, ${this.silverGlowIntensity * 0.5})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      this.ctx.lineTo(sx, sy);
+      this.ctx.stroke();
+    }
+    
+    // 添加額外的閃爍水晶光點效果
+    const crystalSparkles = 6;
+    for (let i = 0; i < crystalSparkles; i++) {
+      const angle = (this.silverGlowPhase * 3 + (i * Math.PI * 2) / crystalSparkles);
+      const distance = currentRadius * pulse * 0.7;
+      const sparkleX = centerX + Math.cos(angle) * distance;
+      const sparkleY = centerY + Math.sin(angle) * distance;
+      const sparkleSize = 3 * this.silverGlowIntensity;
+      
+      // 水晶閃光核心
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${this.silverGlowIntensity * 0.95})`;
+      this.ctx.beginPath();
+      this.ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // 閃光光暈
+      const sparkleGradient = this.ctx.createRadialGradient(
+        sparkleX, sparkleY, 0,
+        sparkleX, sparkleY, sparkleSize * 4
+      );
+      sparkleGradient.addColorStop(0, `rgba(173, 216, 230, ${this.silverGlowIntensity * 0.7})`); // 淡藍銀
+      sparkleGradient.addColorStop(0.5, `rgba(192, 192, 192, ${this.silverGlowIntensity * 0.4})`);
+      sparkleGradient.addColorStop(1, 'rgba(192, 192, 192, 0)');
+      this.ctx.fillStyle = sparkleGradient;
+      this.ctx.beginPath();
+      this.ctx.arc(sparkleX, sparkleY, sparkleSize * 4, 0, Math.PI * 2);
+      this.ctx.fill();
     }
   }
 
@@ -1930,29 +2151,23 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   async showGameInstructions() {
     const alert = await this.alertController.create({
       header: '🎮 遊戲說明',
-      message: `
-        🕹️ 左下角搖桿：上下左右移動戰機<br><br>
-        ⬅️ ➡️ ⬆️ ⬇️ 方向鍵：移動戰機<br><br>
-        🔥 右下角按鈕 / ⎵ 空白鍵：發射子彈<br><br>
-        💥 ⬅️ + ⎵ 左鍵+空白鍵：分裂左偏射擊（3顆子彈，隨機速度）<br><br>
-        💥 ➡️ + ⎵ 右鍵+空白鍵：分裂右偏射擊（3顆子彈，隨機速度）<br><br>
-        🎵 射擊音符：彩色音符攻擊敵機<br><br>
-        ❤️ 連續射擊3次：發射彩色愛心特殊攻擊<br><br>
-        🌈 每發子彈隨機變色，讓遊戲更繽紛<br><br>
-        ✨ 上下移動 3 步：觸發超炫光圈特效<br><br>
-        💫 包含：震動波、光圈漣漪、星光射線<br><br>
-        🌟 持續移動：產生綠色拖尾粒子<br><br>
-        🎪 演唱會舞台燈光：8 個彩色聚光燈隨節拍律動<br><br>
-        ⚡ 激光射線：從兩側射出的炫彩激光束<br><br>
-        💥 頻閃效果：配合音樂節拍的閃光特效<br><br>
-        🎵 背景音樂：電子舞曲風格的合成器音樂<br><br>
-        🎯 目標：消滅敵機獲得分數<br><br>
-        ⚠️ 避免與敵機碰撞
-      `,
+      message: '<div style="line-height: 2;">' +
+        '🕹️ 搖桿/方向鍵：移動戰機<br>' +
+        '🔥 射擊鈕/空白鍵：發射子彈<br>' +
+        '💥 左鍵+空白鍵：左偏射擊<br>' +
+        '💥 右鍵+空白鍵：右偏射擊<br><br>' +
+        '🎵 每3發變愛心，子彈隨機變色<br>' +
+        '✨ 上下移動3步：金色特效<br>' +
+        '💎 打中3次水晶：銀色特效<br>' +
+        '🎪 8色舞台燈光隨節拍律動<br>' +
+        '⚡ 兩側激光束與頻閃效果<br><br>' +
+        '🎯 消滅敵機得分，避免碰撞！' +
+        '</div>',
       buttons: [
         {
-          text: '關閉',
-          role: 'cancel'
+          text: '開始遊戲',
+          role: 'cancel',
+          cssClass: 'alert-button-confirm'
         }
       ],
       cssClass: 'game-instructions-alert'

@@ -93,6 +93,18 @@
     font-size: 14px;
     margin: 0;
   }
+  
+  ion-button.go-button {
+    --padding-start: 10px;
+    --padding-end: 10px;
+    --padding-top: 5px;
+    --padding-bottom: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    height: 30px;
+    width: 50px;
+    --border-radius: 6px;
+  }
 }
 
 // 生命顯示
@@ -607,6 +619,224 @@ ion-header {
   }
 }
 
+// ==================== 入口頁面樣式（使用特定類名，不影響遊戲頁面）====================
+.welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.welcome-content {
+  max-width: 600px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 50px rgba(76, 175, 80, 0.3);
+  padding: 30px;
+  animation: welcomeFadeIn 0.6s ease-out;
+}
+
+@keyframes welcomeFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.welcome-header {
+  text-align: center;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid #4CAF50;
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2A2E35;
+  margin: 0;
+  text-shadow: 
+    2px 2px 4px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(76, 175, 80, 0.3);
+}
+
+.welcome-instructions {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-bottom: 30px;
+  
+  // 自定義滾動條
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #4CAF50;
+    border-radius: 10px;
+    
+    &:hover {
+      background: #66BB6A;
+    }
+  }
+}
+
+.instruction-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  background: rgba(76, 175, 80, 0.08);
+  border-radius: 10px;
+  border-left: 4px solid #4CAF50;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(76, 175, 80, 0.15);
+    transform: translateX(5px);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+  }
+}
+
+.instruction-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.instruction-text {
+  font-size: 16px;
+  line-height: 1.5;
+  color: #2A2E35;
+  font-weight: 500;
+}
+
+.instruction-divider {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #4CAF50 50%,
+    transparent 100%
+  );
+  margin: 20px 0;
+}
+
+.welcome-enter-btn {
+  width: 100%;
+  padding: 18px 40px;
+  font-size: 22px;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+  box-shadow: 
+    0 8px 25px rgba(76, 175, 80, 0.4),
+    0 0 30px rgba(76, 175, 80, 0.2);
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  
+  &:hover {
+    background: linear-gradient(135deg, #66BB6A 0%, #81C784 100%);
+    transform: translateY(-3px);
+    box-shadow: 
+      0 12px 35px rgba(76, 175, 80, 0.5),
+      0 0 40px rgba(76, 175, 80, 0.3);
+  }
+  
+  &:active {
+    transform: translateY(-1px);
+    box-shadow: 
+      0 6px 20px rgba(76, 175, 80, 0.4),
+      0 0 25px rgba(76, 175, 80, 0.2);
+  }
+}
+
+// 手機響應式
+@media (max-width: 768px) {
+  .welcome-content {
+    padding: 25px 20px;
+    max-width: 100%;
+  }
+  
+  .welcome-title {
+    font-size: 26px;
+  }
+  
+  .instruction-text {
+    font-size: 14px;
+  }
+  
+  .instruction-icon {
+    font-size: 20px;
+  }
+  
+  .welcome-instructions {
+    max-height: 400px;
+  }
+  
+  .welcome-enter-btn {
+    font-size: 18px;
+    padding: 15px 30px;
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-overlay {
+    padding: 15px;
+  }
+  
+  .welcome-content {
+    padding: 20px 15px;
+  }
+  
+  .welcome-title {
+    font-size: 22px;
+  }
+  
+  .instruction-item {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  
+  .instruction-text {
+    font-size: 13px;
+  }
+  
+  .instruction-icon {
+    font-size: 18px;
+  }
+  
+  .welcome-enter-btn {
+    font-size: 16px;
+    padding: 14px 25px;
+  }
+}
+
 // 遊戲說明 Alert 樣式
 ::ng-deep .game-instructions-alert {
   .alert-wrapper {
@@ -624,31 +854,39 @@ ion-header {
         }
       }
       
-      .alert-message {
-        padding: 20px;
-        max-height: 450px;
-        overflow-y: auto;
-        text-align: left;
-        font-size: 15px;
-        line-height: 1.8;
+    .alert-message {
+      padding: 20px;
+      max-height: 450px;
+      overflow-y: auto;
+      text-align: left;
+      font-size: 15px;
+      line-height: 1.8;
+      color: #FFFFFF !important;
+      background: linear-gradient(135deg, #3D0C0C 0%, #4A0E0E 100%);
+      
+      div {
         color: #FFFFFF !important;
-        background: linear-gradient(135deg, #1F2329 0%, #2A2E35 100%);
       }
+    }
     
     .alert-button-group {
       padding: 10px;
       
       button {
-        background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
-        color: white;
+        background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%) !important;
+        color: white !important;
         font-weight: bold;
         border-radius: 8px;
         padding: 12px 24px;
-        text-transform: uppercase;
+        font-size: 16px;
         letter-spacing: 0.5px;
         
+        &.alert-button-confirm {
+          background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%) !important;
+        }
+        
         &:hover {
-          background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+          opacity: 0.9;
         }
       }
     }
