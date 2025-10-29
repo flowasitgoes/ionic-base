@@ -1,20 +1,57 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+  <ion-toolbar color="dark">
     <ion-title>
-      Blank
+      ✈️ 飛機射擊遊戲
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <div class="game-container">
+    <!-- 遊戲信息欄 -->
+    <div class="game-info">
+      <div class="score">得分: {{ score }}</div>
+      <div class="status" *ngIf="!gameStarted && !gameOver">
+        <ion-button color="success" (click)="startGame()">
+          開始遊戲
+        </ion-button>
+      </div>
+      <div class="status" *ngIf="gameStarted && !gameOver">遊戲進行中</div>
+    </div>
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+    <!-- 遊戲畫布 -->
+    <div class="canvas-wrapper">
+      <canvas #gameCanvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- 遊戲說明 -->
+    <div class="game-instructions" *ngIf="!gameStarted && !gameOver">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>遊戲說明</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>⬅️ ➡️ 左右方向鍵：移動戰機</p>
+          <p>⎵ 空白鍵：發射子彈</p>
+          <p>🎯 目標：消滅敵機獲得分數</p>
+          <p>⚠️ 避免與敵機碰撞</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- 遊戲結束畫面 -->
+    <div class="game-over" *ngIf="gameOver">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>遊戲結束！</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <h2>最終得分: {{ score }}</h2>
+          <ion-button expand="block" color="primary" (click)="restartGame()">
+            重新開始
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+    </div>
   </div>
 </ion-content>
