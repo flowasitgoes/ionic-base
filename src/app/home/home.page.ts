@@ -174,8 +174,8 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }, 100);
   }
   
-  // 測試音頻功能（用於診斷）
-  async testAudio() {
+  // 測試音頻功能（用於診斷）- iOS 關鍵：同步調用
+  testAudio() {
     console.log('🔧 手動測試音頻...');
     
     if (!this.audioContext) {
@@ -184,104 +184,123 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     if (this.audioContext) {
-      try {
-        console.log('當前狀態:', this.audioContext.state);
-        
-        if (this.audioContext.state === 'suspended') {
-          console.log('正在啟動音頻上下文...');
-          await this.audioContext.resume();
-        }
+      console.log('當前狀態:', this.audioContext.state);
+      
+      // 同步調用 resume（這是 iOS Safari 的關鍵）
+      const resumePromise = this.audioContext.state === 'suspended' 
+        ? this.audioContext.resume() 
+        : Promise.resolve();
+      
+      resumePromise.then(() => {
+        if (!this.audioContext) return;
         
         this.audioContextState = this.audioContext.state;
         console.log('✅ 音頻狀態:', this.audioContext.state);
         
-        // 播放測試音（440Hz A音，持續0.3秒）
-        const osc = this.audioContext.createOscillator();
-        const gain = this.audioContext.createGain();
+        try {
+          // 播放測試音（440Hz A音，持續0.5秒，音量更大）
+          const osc = this.audioContext.createOscillator();
+          const gain = this.audioContext.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, this.audioContext.currentTime);
+          
+          gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+          gain.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+          
+          osc.connect(gain);
+          gain.connect(this.audioContext.destination);
+          
+          osc.start(this.audioContext.currentTime);
+          osc.stop(this.audioContext.currentTime + 0.5);
+          
+          console.log('🎵 測試音已播放（440Hz，持續0.5秒）');
+          
+          // 更新狀態顯示
+          setTimeout(() => {
+            if (this.audioContext) {
+              this.audioContextState = this.audioContext.state;
+              console.log('🔊 測試後狀態:', this.audioContext.state);
+            }
+          }, 100);
+          
+        } catch (err: any) {
+          console.error('❌ 播放測試音失敗:', err);
+          alert('播放測試音失敗: ' + (err?.message || err));
+        }
         
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, this.audioContext.currentTime);
-        
-        gain.gain.setValueAtTime(0, this.audioContext.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
-        
-        osc.connect(gain);
-        gain.connect(this.audioContext.destination);
-        
-        osc.start(this.audioContext.currentTime);
-        osc.stop(this.audioContext.currentTime + 0.3);
-        
-        console.log('🎵 測試音已播放（440Hz）');
-        
-        // 更新狀態顯示
-        setTimeout(() => {
-          if (this.audioContext) {
-            this.audioContextState = this.audioContext.state;
-          }
-        }, 100);
-        
-      } catch (err) {
+      }).catch((err: any) => {
         console.error('❌ 測試音頻失敗:', err);
-        alert('音頻測試失敗: ' + err);
-      }
+        alert('音頻測試失敗: ' + (err?.message || err));
+      });
+      
     } else {
       console.error('❌ 無法創建音頻上下文');
       alert('無法創建音頻上下文');
     }
   }
   
-  // 從入口頁面進入遊戲
-  async enterGame() {
+  // 從入口頁面進入遊戲（iOS 關鍵：必須同步調用 resume）
+  enterGame() {
     this.showWelcomeScreen = false;
     
     // 初始化音頻系統（需要用戶交互才能在iOS上工作）
     this.initAudio();
     
-    // iOS Safari 關鍵：立即啟動 AudioContext（必須在用戶交互事件中）
+    // iOS Safari 關鍵：必須在用戶交互的同步回調中立即調用 resume()
     if (this.audioContext) {
-      try {
-        // 強制啟動音頻上下文
-        await this.audioContext.resume();
-        this.audioContextState = this.audioContext.state; // 更新狀態顯示
+      console.log('🔧 enterGame - 音頻狀態 (before resume):', this.audioContext.state);
+      
+      // 同步調用 resume（不使用 await）
+      const resumePromise = this.audioContext.resume();
+      
+      // 立即播放測試音（在 resume 的 Promise 鏈中）
+      resumePromise.then(() => {
+        if (!this.audioContext) return;
+        
+        this.audioContextState = this.audioContext.state;
         console.log('✅ 音頻上下文已啟動！狀態:', this.audioContext.state);
         
-        // 播放一個短促可聽見的測試音（iOS Safari 需要這樣才能真正啟動）
-        const testOsc = this.audioContext.createOscillator();
-        const testGain = this.audioContext.createGain();
+        try {
+          // 播放短促可聽見的測試音
+          const testOsc = this.audioContext.createOscillator();
+          const testGain = this.audioContext.createGain();
+          
+          testOsc.type = 'sine';
+          testOsc.frequency.setValueAtTime(800, this.audioContext.currentTime);
+          
+          testGain.gain.setValueAtTime(0, this.audioContext.currentTime);
+          testGain.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.01);
+          testGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+          
+          testOsc.connect(testGain);
+          testGain.connect(this.audioContext.destination);
+          testOsc.start(this.audioContext.currentTime);
+          testOsc.stop(this.audioContext.currentTime + 0.2);
+          
+          console.log('🎵 測試音已播放');
+        } catch (err) {
+          console.error('❌ 播放測試音失敗:', err);
+        }
         
-        testOsc.type = 'sine';
-        testOsc.frequency.setValueAtTime(800, this.audioContext.currentTime);
-        
-        // 快速淡入淡出，音量較小
-        testGain.gain.setValueAtTime(0, this.audioContext.currentTime);
-        testGain.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.01);
-        testGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
-        
-        testOsc.connect(testGain);
-        testGain.connect(this.audioContext.destination);
-        testOsc.start(this.audioContext.currentTime);
-        testOsc.stop(this.audioContext.currentTime + 0.15);
-        
-        console.log('✅ 音頻測試完成，系統已就緒');
-        
-        // 再次檢查狀態
+        // 更新狀態顯示
         setTimeout(() => {
           if (this.audioContext) {
             this.audioContextState = this.audioContext.state;
             console.log('🔊 最終音頻狀態:', this.audioContext.state);
           }
-        }, 200);
+        }, 300);
         
-      } catch (err) {
+      }).catch((err: any) => {
         console.error('❌ 啟動音頻上下文失敗:', err);
-        this.audioContextState = '啟動失敗';
-      }
+        this.audioContextState = '啟動失敗: ' + (err?.message || err);
+      });
     }
     
     // 等待一下讓DOM更新
     setTimeout(() => {
-      console.log('✅ 已從入口頁面進入遊戲，音頻系統已初始化');
+      console.log('✅ 已從入口頁面進入遊戲');
     }, 100);
   }
 
@@ -368,18 +387,22 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     console.log('Canvas 初始化成功', `尺寸: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}`, `性能模式: ${this.performanceMode}`);
   }
 
-  // 開始遊戲
-  async startGame() {
+  // 開始遊戲（iOS 關鍵：同步調用 resume）
+  startGame() {
     // 確保音頻上下文已啟動（iOS 兼容性）
     if (this.audioContext && this.audioContext.state === 'suspended') {
-      try {
-        await this.audioContext.resume();
-        this.audioContextState = this.audioContext.state; // 更新狀態顯示
-        console.log('✅ 音頻上下文已在 startGame 中啟動，狀態:', this.audioContext.state);
-      } catch (err) {
+      console.log('🔧 startGame - 嘗試啟動音頻，當前狀態:', this.audioContext.state);
+      
+      // 同步調用 resume
+      this.audioContext.resume().then(() => {
+        if (this.audioContext) {
+          this.audioContextState = this.audioContext.state;
+          console.log('✅ 音頻上下文已在 startGame 中啟動，狀態:', this.audioContext.state);
+        }
+      }).catch((err: any) => {
         console.error('❌ startGame 中啟動音頻失敗:', err);
         this.audioContextState = '啟動失敗';
-      }
+      });
     }
     
     this.gameStarted = true;
