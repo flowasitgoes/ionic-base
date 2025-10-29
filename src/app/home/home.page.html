@@ -12,6 +12,11 @@
           <span class="instruction-text">本遊戲已針對移動設備自動優化性能</span>
         </div>
         
+        <div class="instruction-item audio-notice">
+          <span class="instruction-icon">🔊</span>
+          <span class="instruction-text">請確保手機音量已開啟且未靜音</span>
+        </div>
+        
         <div class="instruction-item">
           <span class="instruction-icon">🕹️</span>
           <span class="instruction-text">左下角搖桿：上下左右移動戰機</span>
@@ -30,9 +35,11 @@
         
       </div>
       
-      <button class="welcome-enter-btn" (click)="enterGame()">
-        開始遊戲
+      <button class="welcome-enter-btn" (click)="enterGame()" 
+              (touchstart)="enterGame()" (mousedown)="enterGame()">
+        開始遊戲 🔊
       </button>
+      <p class="audio-hint">* 點擊後請確保聲音已開啟</p>
     </div>
   </div>
   
@@ -51,6 +58,9 @@
             {{ audioContextState === 'running' ? '🔊' : '🔇' }}
           </span>
           <span class="audio-text">{{ audioContextState || '未初始化' }}</span>
+          <button class="test-audio-btn" (click)="testAudio()" (touchstart)="testAudio()">
+            測試
+          </button>
         </div>
       </div>
       <div class="lives">
