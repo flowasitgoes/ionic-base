@@ -99,6 +99,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   private glowIntensity = 0; // 發光強度（0-1）
   private glowPhase = 0; // 發光動畫相位
   private readonly MOVE_THRESHOLD = 3; // 觸發閃光的移動步數閾值
+  private lastGlowTriggerTime = 0; // 上次觸發金光的時間
+  private readonly GLOW_COOLDOWN_MOBILE = 2000; // 移動端金光冷卻時間（毫秒）- 更長
+  private readonly GLOW_COOLDOWN_DESKTOP = 800; // 桌面端金光冷卻時間（毫秒）
   
   // 银光效果（连续打到水晶触发）
   private crystalHitCount = 0; // 連續打到水晶的計數器
@@ -568,40 +571,53 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // 追踪上下移動步數
+    // 追踪上下移動步數（移動端降低敏感度）
     const yDiff = Math.abs(this.player.y - this.lastPlayerY);
-    if (yDiff > 1) { // 有顯著的上下移動
+    const moveThreshold = this.isMobile ? 2 : 1; // 移動端需要更大的移動量才計數
+    
+    if (yDiff > moveThreshold) {
       this.verticalMoveCount++;
       this.lastPlayerY = this.player.y;
       
       // 添加拖尾粒子
       this.addTrailParticles();
       
-      // 當移動步數達到閾值時，觸發閃光效果
-      if (this.verticalMoveCount >= this.MOVE_THRESHOLD) {
+      // 當移動步數達到閾值且冷卻時間已過時，觸發閃光效果
+      const currentTime = Date.now();
+      const cooldown = this.isMobile ? this.GLOW_COOLDOWN_MOBILE : this.GLOW_COOLDOWN_DESKTOP;
+      const timeSinceLastGlow = currentTime - this.lastGlowTriggerTime;
+      
+      if (this.verticalMoveCount >= this.MOVE_THRESHOLD && 
+          !this.isGlowing && 
+          timeSinceLastGlow >= cooldown) {
         this.isGlowing = true;
         this.glowIntensity = 1.0;
+        this.lastGlowTriggerTime = currentTime;
         
-        // 創建震動波
-        this.createShockwave();
+        // 創建震動波（僅桌面端或中等性能以上）
+        if (this.performanceMode !== 'low') {
+          this.createShockwave();
+        }
         
-        // 創建多個光圈漣漪
-        for (let i = 0; i < 3; i++) {
+        // 創建光圈漣漪（移動端只創建1個）
+        const rippleCount = this.isMobile ? 1 : 3;
+        for (let i = 0; i < rippleCount; i++) {
           setTimeout(() => {
             this.createRipple();
           }, i * 100);
         }
         
-        console.log('✨ 金色閃光效果觸發！移動步數：', this.verticalMoveCount);
+        console.log('✨ 金色閃光效果觸發！移動步數：', this.verticalMoveCount, '設備：', this.isMobile ? '移動端' : '桌面端');
       }
     }
     
-    // 更新金光效果
+    // 更新金光效果（移動端更快衰減）
     if (this.isGlowing) {
-      this.glowPhase += 0.2; // 動畫速度加快
+      this.glowPhase += 0.2;
       
-      // 閃光強度逐漸減弱
-      this.glowIntensity -= 0.008;
+      // 移動端加快衰減速度，讓光效更快消失
+      const decayRate = this.isMobile ? 0.02 : 0.008;
+      this.glowIntensity -= decayRate;
       
       // 閃光結束
       if (this.glowIntensity <= 0) {
@@ -612,12 +628,13 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // 更新銀光效果
+    // 更新銀光效果（移動端更快衰減）
     if (this.isSilverGlowing) {
-      this.silverGlowPhase += 0.2; // 動畫速度
+      this.silverGlowPhase += 0.2;
       
-      // 銀光強度逐漸減弱
-      this.silverGlowIntensity -= 0.008;
+      // 移動端加快衰減速度
+      const decayRate = this.isMobile ? 0.02 : 0.008;
+      this.silverGlowIntensity -= decayRate;
       
       // 銀光結束
       if (this.silverGlowIntensity <= 0) {
@@ -1530,7 +1547,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 繪製金色閃光效果（根據性能模式優化）
+  // 繪製金色閃光效果（移動端最多5圈，桌面端更多）
   private drawGoldenGlow(centerX: number, centerY: number) {
     const baseRadius = 40;
     const maxRadius = 80;
@@ -1539,9 +1556,11 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     const pulse = Math.sin(this.glowPhase) * 0.25 + 0.75; // 0.5 - 1.0 之間脈動
     const currentRadius = baseRadius + (maxRadius - baseRadius) * (1 - this.glowIntensity);
     
-    // 根據性能模式調整光暈層數
-    const layerCount = this.performanceMode === 'low' ? 3 : 
-                       this.performanceMode === 'medium' ? 4 : 6;
+    // 移動端最多5層，桌面端根據性能模式
+    const layerCount = this.isMobile ? 
+                       Math.min(4, this.performanceMode === 'low' ? 3 : 4) : // 移動端：3-4層
+                       (this.performanceMode === 'low' ? 3 : 
+                        this.performanceMode === 'medium' ? 5 : 6); // 桌面端：3-6層
     
     // 繪製多層光暈
     for (let i = layerCount; i >= 0; i--) {
@@ -1567,9 +1586,11 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
     }
     
-    // 繪製旋轉的閃光粒子（根據性能模式調整數量）
-    const particleCount = this.performanceMode === 'low' ? 6 : 
-                          this.performanceMode === 'medium' ? 8 : 12;
+    // 繪製旋轉的閃光粒子（移動端減少數量）
+    const particleCount = this.isMobile ? 
+                          (this.performanceMode === 'low' ? 4 : 6) : // 移動端：4-6個
+                          (this.performanceMode === 'low' ? 6 : 
+                           this.performanceMode === 'medium' ? 8 : 12); // 桌面端：6-12個
     for (let i = 0; i < particleCount; i++) {
       const angle = (this.glowPhase * 1.5 + (i * Math.PI * 2) / particleCount);
       const distance = baseRadius * pulse * 1.3;
@@ -1620,7 +1641,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 繪製銀色閃光效果（根據性能模式優化）
+  // 繪製銀色閃光效果（移動端最多5圈）
   private drawSilverGlow(centerX: number, centerY: number) {
     const baseRadius = 40;
     const maxRadius = 80;
@@ -1629,9 +1650,11 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     const pulse = Math.sin(this.silverGlowPhase) * 0.25 + 0.75; // 0.5 - 1.0 之間脈動
     const currentRadius = baseRadius + (maxRadius - baseRadius) * (1 - this.silverGlowIntensity);
     
-    // 根據性能模式調整光暈層數
-    const layerCount = this.performanceMode === 'low' ? 3 : 
-                       this.performanceMode === 'medium' ? 4 : 6;
+    // 移動端最多5層，桌面端根據性能模式
+    const layerCount = this.isMobile ? 
+                       Math.min(4, this.performanceMode === 'low' ? 3 : 4) : // 移動端：3-4層
+                       (this.performanceMode === 'low' ? 3 : 
+                        this.performanceMode === 'medium' ? 5 : 6); // 桌面端：3-6層
     
     // 繪製多層銀光光暈
     for (let i = layerCount; i >= 0; i--) {
@@ -1657,9 +1680,11 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
     }
     
-    // 繪製旋轉的銀色粒子（根據性能模式調整）
-    const particleCount = this.performanceMode === 'low' ? 6 : 
-                          this.performanceMode === 'medium' ? 8 : 12;
+    // 繪製旋轉的銀色粒子（移動端減少數量）
+    const particleCount = this.isMobile ? 
+                          (this.performanceMode === 'low' ? 4 : 6) : // 移動端：4-6個
+                          (this.performanceMode === 'low' ? 6 : 
+                           this.performanceMode === 'medium' ? 8 : 12); // 桌面端：6-12個
     for (let i = 0; i < particleCount; i++) {
       const angle = (-this.silverGlowPhase * 1.5 + (i * Math.PI * 2) / particleCount); // 反方向旋轉
       const distance = baseRadius * pulse * 1.3;
