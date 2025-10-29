@@ -59,6 +59,22 @@ export class HomePage implements OnInit, OnDestroy {
   private enemySpawnTimer = 0;
   private readonly ENEMY_SPAWN_INTERVAL = 60; // 每60幀生成一個敵機
 
+  // 觸控控制 - 虛擬搖桿
+  joystickX = 0;
+  joystickY = 0;
+  private joystickActive = false;
+  private joystickBaseX = 0;
+  private joystickBaseY = 0;
+  private readonly JOYSTICK_MAX_DISTANCE = 40; // 搖桿最大移動距離
+
+  // 觸控控制 - 移動方向
+  private touchMoveDirection = { x: 0, y: 0 };
+
+  // 射擊按鈕狀態
+  private shootButtonPressed = false;
+  private shootCooldown = 0;
+  private readonly SHOOT_COOLDOWN = 10; // 發射冷卻時間（幀數）
+
   constructor() {}
 
   ngOnInit() {
@@ -68,6 +84,7 @@ export class HomePage implements OnInit, OnDestroy {
   ngAfterViewInit() {
     setTimeout(() => {
       this.initCanvas();
+      this.setupTouchControls();
     }, 100);
   }
 
@@ -169,11 +186,32 @@ export class HomePage implements OnInit, OnDestroy {
 
   // 更新玩家位置
   private updatePlayer() {
+    // 鍵盤控制（用於電腦測試）
     if (this.keys['ArrowLeft'] && this.player.x > 0) {
       this.player.x -= this.player.speed!;
     }
     if (this.keys['ArrowRight'] && this.player.x < this.CANVAS_WIDTH - this.player.width) {
       this.player.x += this.player.speed!;
+    }
+    
+    // 觸控搖桿控制（用於手機）
+    if (this.joystickActive) {
+      const moveSpeed = this.player.speed! * 1.2; // 稍微快一點
+      this.player.x += this.touchMoveDirection.x * moveSpeed;
+      
+      // 限制在畫布範圍內
+      this.player.x = Math.max(0, Math.min(this.CANVAS_WIDTH - this.player.width, this.player.x));
+    }
+    
+    // 處理射擊冷卻
+    if (this.shootCooldown > 0) {
+      this.shootCooldown--;
+    }
+    
+    // 射擊按鈕持續發射
+    if (this.shootButtonPressed && this.shootCooldown === 0) {
+      this.shootBullet();
+      this.shootCooldown = this.SHOOT_COOLDOWN;
     }
   }
 
@@ -358,5 +396,107 @@ export class HomePage implements OnInit, OnDestroy {
         this.ctx.fill();
       }
     });
+  }
+
+  // ==================== 觸控控制方法 ====================
+
+  // 設置觸控控制
+  private setupTouchControls() {
+    const joystickBase = document.querySelector('.joystick-base') as HTMLElement;
+    
+    if (joystickBase) {
+      // 觸摸開始
+      joystickBase.addEventListener('touchstart', (e) => this.onJoystickStart(e as TouchEvent), { passive: false });
+      
+      // 觸摸移動
+      joystickBase.addEventListener('touchmove', (e) => this.onJoystickMove(e as TouchEvent), { passive: false });
+      
+      // 觸摸結束
+      joystickBase.addEventListener('touchend', () => this.onJoystickEnd(), { passive: false });
+      joystickBase.addEventListener('touchcancel', () => this.onJoystickEnd(), { passive: false });
+    }
+  }
+
+  // 虛擬搖桿觸摸開始
+  private onJoystickStart(event: TouchEvent) {
+    if (!this.gameStarted || this.gameOver) return;
+    
+    event.preventDefault();
+    this.joystickActive = true;
+    
+    const touch = event.touches[0];
+    const joystickBase = event.target as HTMLElement;
+    const rect = joystickBase.getBoundingClientRect();
+    
+    this.joystickBaseX = rect.left + rect.width / 2;
+    this.joystickBaseY = rect.top + rect.height / 2;
+    
+    this.updateJoystickPosition(touch.clientX, touch.clientY);
+  }
+
+  // 虛擬搖桿觸摸移動
+  private onJoystickMove(event: TouchEvent) {
+    if (!this.joystickActive || !this.gameStarted || this.gameOver) return;
+    
+    event.preventDefault();
+    const touch = event.touches[0];
+    this.updateJoystickPosition(touch.clientX, touch.clientY);
+  }
+
+  // 虛擬搖桿觸摸結束
+  private onJoystickEnd() {
+    this.joystickActive = false;
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.touchMoveDirection = { x: 0, y: 0 };
+  }
+
+  // 更新搖桿位置和方向
+  private updateJoystickPosition(touchX: number, touchY: number) {
+    // 計算相對於搖桿中心的偏移
+    let deltaX = touchX - this.joystickBaseX;
+    let deltaY = touchY - this.joystickBaseY;
+    
+    // 計算距離和角度
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // 限制搖桿移動範圍
+    if (distance > this.JOYSTICK_MAX_DISTANCE) {
+      const angle = Math.atan2(deltaY, deltaX);
+      deltaX = Math.cos(angle) * this.JOYSTICK_MAX_DISTANCE;
+      deltaY = Math.sin(angle) * this.JOYSTICK_MAX_DISTANCE;
+    }
+    
+    // 更新搖桿視覺位置
+    this.joystickX = deltaX;
+    this.joystickY = deltaY;
+    
+    // 更新移動方向（標準化）
+    if (distance > 0) {
+      this.touchMoveDirection.x = deltaX / this.JOYSTICK_MAX_DISTANCE;
+      this.touchMoveDirection.y = deltaY / this.JOYSTICK_MAX_DISTANCE;
+    } else {
+      this.touchMoveDirection = { x: 0, y: 0 };
+    }
+  }
+
+  // 射擊按鈕按下
+  onShootButtonPress(event: TouchEvent) {
+    if (!this.gameStarted || this.gameOver) return;
+    
+    event.preventDefault();
+    this.shootButtonPressed = true;
+    
+    // 立即發射一次
+    if (this.shootCooldown === 0) {
+      this.shootBullet();
+      this.shootCooldown = this.SHOOT_COOLDOWN;
+    }
+  }
+
+  // 射擊按鈕放開
+  onShootButtonRelease(event: TouchEvent) {
+    event.preventDefault();
+    this.shootButtonPressed = false;
   }
 }

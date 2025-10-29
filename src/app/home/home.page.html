@@ -22,6 +22,25 @@
     <!-- 遊戲畫布 -->
     <div class="canvas-wrapper">
       <canvas #gameCanvas id="gameCanvas"></canvas>
+      
+      <!-- 觸控控制層 -->
+      <div class="touch-controls" *ngIf="gameStarted && !gameOver">
+        <!-- 左側虛擬搖桿 -->
+        <div class="joystick-container">
+          <div class="joystick-base">
+            <div class="joystick-stick" 
+                 [style.transform]="'translate(' + joystickX + 'px, ' + joystickY + 'px)'">
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右側射擊按鈕 -->
+        <div class="shoot-button" 
+             (touchstart)="onShootButtonPress($event)"
+             (touchend)="onShootButtonRelease($event)">
+          <span>🔥</span>
+        </div>
+      </div>
     </div>
 
     <!-- 遊戲說明 -->
