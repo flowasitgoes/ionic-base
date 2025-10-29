@@ -717,6 +717,22 @@ ion-header {
     transform: translateX(5px);
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
   }
+  
+  // 性能提示特殊样式
+  &.performance-notice {
+    background: rgba(255, 193, 7, 0.12);
+    border-left-color: #FFC107;
+    
+    .instruction-text {
+      font-weight: 600;
+      color: #F57C00;
+    }
+    
+    &:hover {
+      background: rgba(255, 193, 7, 0.2);
+      box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+    }
+  }
 }
 
 .instruction-icon {

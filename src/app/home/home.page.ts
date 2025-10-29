@@ -50,6 +50,10 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   // Canvas 尺寸（默認為移動端）
   private CANVAS_WIDTH = 400;
   private CANVAS_HEIGHT = 600;
+  
+  // 性能模式檢測
+  private isMobile = false;
+  private performanceMode: 'high' | 'medium' | 'low' = 'high';
 
   // 玩家戰機
   private player: GameObject = {
@@ -137,6 +141,29 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     console.log('飛機射擊遊戲初始化');
+    this.detectPerformanceMode();
+  }
+  
+  // 檢測性能模式
+  private detectPerformanceMode() {
+    // 檢測是否為移動設備
+    this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // 根據設備和屏幕尺寸設置性能模式
+    if (this.isMobile) {
+      // 移動設備默認使用低性能模式
+      this.performanceMode = 'low';
+      
+      // 如果是較新的設備（通過 devicePixelRatio 判斷），可以使用中等性能
+      if (window.devicePixelRatio >= 2 && window.innerWidth >= 375) {
+        this.performanceMode = 'medium';
+      }
+    } else {
+      // 桌面設備使用高性能模式
+      this.performanceMode = 'high';
+    }
+    
+    console.log(`🎮 性能模式: ${this.performanceMode}, 移動設備: ${this.isMobile}`);
   }
 
   ngAfterViewInit() {
@@ -152,6 +179,15 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     
     // 初始化音頻系統（需要用戶交互才能在iOS上工作）
     this.initAudio();
+    
+    // iOS Safari 需要顯式啟動 AudioContext
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().then(() => {
+        console.log('🔊 音頻上下文已啟動 (iOS兼容)');
+      }).catch(err => {
+        console.error('❌ 啟動音頻上下文失敗:', err);
+      });
+    }
     
     // 等待一下讓DOM更新
     setTimeout(() => {
@@ -201,7 +237,10 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   // 初始化 Canvas
   private initCanvas() {
     this.canvas = this.canvasRef.nativeElement;
-    const context = this.canvas.getContext('2d');
+    const context = this.canvas.getContext('2d', {
+      alpha: false, // 禁用透明度提升性能
+      desynchronized: true // 降低延遲
+    });
     
     if (!context) {
       console.error('無法獲取 Canvas 2D 上下文');
@@ -213,26 +252,41 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     // 根據螢幕大小設定 Canvas 尺寸（適應螢幕高度）
     const availableHeight = window.innerHeight - 180; // 扣除標題和其他元素的空間
     
+    // 移動端降低分辨率提升性能
+    const scale = this.performanceMode === 'low' ? 0.8 : 1.0;
+    
     if (window.innerWidth >= 768) {
-      this.CANVAS_WIDTH = 500;
-      this.CANVAS_HEIGHT = Math.min(650, availableHeight);
+      this.CANVAS_WIDTH = 500 * scale;
+      this.CANVAS_HEIGHT = Math.min(650, availableHeight) * scale;
     } else {
-      this.CANVAS_WIDTH = Math.min(400, window.innerWidth - 40);
-      this.CANVAS_HEIGHT = Math.min(600, availableHeight);
+      this.CANVAS_WIDTH = Math.min(400, window.innerWidth - 40) * scale;
+      this.CANVAS_HEIGHT = Math.min(600, availableHeight) * scale;
     }
     
     this.canvas.width = this.CANVAS_WIDTH;
     this.canvas.height = this.CANVAS_HEIGHT;
     
+    // 移動端優化：關閉圖像平滑
+    if (this.performanceMode === 'low') {
+      this.ctx.imageSmoothingEnabled = false;
+    }
+    
     // 初始化玩家位置
     this.player.x = this.CANVAS_WIDTH / 2 - this.player.width / 2;
     this.player.y = this.CANVAS_HEIGHT - this.player.height - 20;
     
-    console.log('Canvas 初始化成功', `尺寸: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}`);
+    console.log('Canvas 初始化成功', `尺寸: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}`, `性能模式: ${this.performanceMode}`);
   }
 
   // 開始遊戲
   startGame() {
+    // 確保音頻上下文已啟動（iOS 兼容性）
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().then(() => {
+        console.log('🔊 音頻上下文已在 startGame 中啟動');
+      });
+    }
+    
     this.gameStarted = true;
     this.gameOver = false;
     this.score = 0;
@@ -864,29 +918,39 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 繪製遊戲畫面
+  // 繪製遊戲畫面（根據性能模式優化）
   private draw() {
     // 清空畫布（繪製背景）- 深鐵灰色
     this.ctx.fillStyle = '#2A2E35';
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
 
-    // 繪製演唱會聚光燈（最底層）
-    this.drawSpotlights();
+    // 繪製演唱會聚光燈（最底層）- 僅高性能和中性能模式
+    if (this.performanceMode !== 'low') {
+      this.drawSpotlights();
+    }
 
     // 繪製星星背景
     this.drawStars();
 
-    // 繪製激光射線
-    this.drawLaserBeams();
+    // 繪製激光射線 - 僅高性能模式
+    if (this.performanceMode === 'high') {
+      this.drawLaserBeams();
+    }
 
-    // 繪製光圈漣漪（在最底層）
-    this.drawRipples();
+    // 繪製光圈漣漪（在最底層）- 僅高性能和中性能模式
+    if (this.performanceMode !== 'low') {
+      this.drawRipples();
+    }
 
-    // 繪製震動波
-    this.drawShockwaves();
+    // 繪製震動波 - 僅高性能模式
+    if (this.performanceMode === 'high') {
+      this.drawShockwaves();
+    }
 
-    // 繪製拖尾粒子
-    this.drawTrailParticles();
+    // 繪製拖尾粒子 - 僅高性能和中性能模式
+    if (this.performanceMode !== 'low') {
+      this.drawTrailParticles();
+    }
 
     // 繪製玩家
     this.drawPlayer();
@@ -897,21 +961,27 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     // 繪製敵機
     this.drawEnemies();
     
-    // 繪製頻閃效果（最上層）
-    this.drawFlashEffect();
+    // 繪製頻閃效果（最上層）- 僅高性能模式
+    if (this.performanceMode === 'high') {
+      this.drawFlashEffect();
+    }
   }
 
-  // 繪製星星背景
+  // 繪製星星背景（根據性能模式調整）
   private drawStars() {
+    // 根據性能模式調整星星數量
+    const starCount = this.performanceMode === 'low' ? 20 : 
+                      this.performanceMode === 'medium' ? 30 : 50;
+    
     this.ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < starCount; i++) {
       const x = (i * 37) % this.CANVAS_WIDTH;
       const y = (i * 59 + Date.now() * 0.05) % this.CANVAS_HEIGHT;
       this.ctx.fillRect(x, y, 2, 2);
     }
   }
 
-  // 繪製玩家電吉他（液態銀色版本！）
+  // 繪製玩家電吉他（根據性能模式優化）
   private drawPlayer() {
     const { x, y, width, height } = this.player;
     const centerX = x + width / 2;
@@ -924,6 +994,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     // 繪製銀色閃光效果（在吉他下層）
     if (this.isSilverGlowing && this.silverGlowIntensity > 0) {
       this.drawSilverGlow(centerX, y + height / 2);
+    }
+    
+    // 低性能模式使用簡化繪製
+    if (this.performanceMode === 'low') {
+      this.drawPlayerSimple(x, y, width, height, centerX);
+      return;
     }
     
     // ============ 電吉他琴身 - 液態金屬風格 ============
@@ -1336,7 +1412,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 繪製金色閃光效果（增強版）
+  // 繪製金色閃光效果（根據性能模式優化）
   private drawGoldenGlow(centerX: number, centerY: number) {
     const baseRadius = 40;
     const maxRadius = 80;
@@ -1345,8 +1421,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     const pulse = Math.sin(this.glowPhase) * 0.25 + 0.75; // 0.5 - 1.0 之間脈動
     const currentRadius = baseRadius + (maxRadius - baseRadius) * (1 - this.glowIntensity);
     
-    // 繪製多層光暈（增加層數）
-    for (let i = 6; i >= 0; i--) {
+    // 根據性能模式調整光暈層數
+    const layerCount = this.performanceMode === 'low' ? 3 : 
+                       this.performanceMode === 'medium' ? 4 : 6;
+    
+    // 繪製多層光暈
+    for (let i = layerCount; i >= 0; i--) {
       const layerRadius = currentRadius * pulse * (1 + i * 0.18);
       const layerAlpha = this.glowIntensity * 0.2 * (1 - i * 0.12);
       
@@ -1369,8 +1449,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
     }
     
-    // 繪製旋轉的閃光粒子（增加數量）
-    const particleCount = 12;
+    // 繪製旋轉的閃光粒子（根據性能模式調整數量）
+    const particleCount = this.performanceMode === 'low' ? 6 : 
+                          this.performanceMode === 'medium' ? 8 : 12;
     for (let i = 0; i < particleCount; i++) {
       const angle = (this.glowPhase * 1.5 + (i * Math.PI * 2) / particleCount);
       const distance = baseRadius * pulse * 1.3;
@@ -1401,7 +1482,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
     }
     
-    // 添加外圈星光效果
+    // 添加外圈星光效果（僅高性能模式）
+    if (this.performanceMode !== 'high') return;
+    
     const starCount = 8;
     for (let i = 0; i < starCount; i++) {
       const angle = (this.glowPhase * 2 + (i * Math.PI * 2) / starCount);
@@ -1419,7 +1502,7 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 繪製銀色閃光效果（連續打到水晶觸發）
+  // 繪製銀色閃光效果（根據性能模式優化）
   private drawSilverGlow(centerX: number, centerY: number) {
     const baseRadius = 40;
     const maxRadius = 80;
@@ -1428,8 +1511,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     const pulse = Math.sin(this.silverGlowPhase) * 0.25 + 0.75; // 0.5 - 1.0 之間脈動
     const currentRadius = baseRadius + (maxRadius - baseRadius) * (1 - this.silverGlowIntensity);
     
+    // 根據性能模式調整光暈層數
+    const layerCount = this.performanceMode === 'low' ? 3 : 
+                       this.performanceMode === 'medium' ? 4 : 6;
+    
     // 繪製多層銀光光暈
-    for (let i = 6; i >= 0; i--) {
+    for (let i = layerCount; i >= 0; i--) {
       const layerRadius = currentRadius * pulse * (1 + i * 0.18);
       const layerAlpha = this.silverGlowIntensity * 0.2 * (1 - i * 0.12);
       
@@ -1452,8 +1539,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
     }
     
-    // 繪製旋轉的銀色粒子（反方向旋轉以區分金光）
-    const particleCount = 12;
+    // 繪製旋轉的銀色粒子（根據性能模式調整）
+    const particleCount = this.performanceMode === 'low' ? 6 : 
+                          this.performanceMode === 'medium' ? 8 : 12;
     for (let i = 0; i < particleCount; i++) {
       const angle = (-this.silverGlowPhase * 1.5 + (i * Math.PI * 2) / particleCount); // 反方向旋轉
       const distance = baseRadius * pulse * 1.3;
@@ -1501,7 +1589,9 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.stroke();
     }
     
-    // 添加額外的閃爍水晶光點效果
+    // 添加額外的閃爍水晶光點效果（僅高性能模式）
+    if (this.performanceMode !== 'high') return;
+    
     const crystalSparkles = 6;
     for (let i = 0; i < crystalSparkles; i++) {
       const angle = (this.silverGlowPhase * 3 + (i * Math.PI * 2) / crystalSparkles);
@@ -1975,13 +2065,18 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // 添加拖尾粒子
+  // 添加拖尾粒子（根據性能模式調整）
   private addTrailParticles() {
+    // 低性能模式不添加拖尾粒子
+    if (this.performanceMode === 'low') return;
+    
     const centerX = this.player.x + this.player.width / 2;
     const centerY = this.player.y + this.player.height;
     
-    // 每幀添加 2-3 個拖尾粒子
-    for (let i = 0; i < 2; i++) {
+    // 根據性能模式調整粒子數量
+    const particleCount = this.performanceMode === 'medium' ? 1 : 2;
+    
+    for (let i = 0; i < particleCount; i++) {
       this.trailParticles.push({
         x: centerX + (Math.random() - 0.5) * this.player.width * 0.6,
         y: centerY,
@@ -2199,7 +2294,12 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
         this.masterGain = this.audioContext.createGain();
         this.masterGain.gain.value = 0.3; // 主音量設為 30%
         this.masterGain.connect(this.audioContext.destination);
-        console.log('🔊 音效系統初始化成功');
+        console.log('🔊 音效系統初始化成功，狀態:', this.audioContext.state);
+        
+        // iOS Safari 需要在用戶交互中顯式啟動
+        if (this.audioContext.state === 'suspended') {
+          console.log('⚠️ AudioContext 處於暫停狀態，將在 enterGame() 中啟動');
+        }
       } catch (error) {
         console.error('❌ 音效系統初始化失敗:', error);
       }
@@ -2912,14 +3012,23 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
   
   // ==================== 演唱會燈光系統 ====================
   
-  // 初始化演唱會燈光
+  // 初始化演唱會燈光（根據性能模式調整）
   private initConcertLights() {
+    // 低性能模式不啟用演唱會燈光
+    if (this.performanceMode === 'low') {
+      console.log('🎪 低性能模式：演唱會燈光已禁用');
+      return;
+    }
+    
     // 創建多個聚光燈
     const spotlightColors = ['#FF1493', '#00FFFF', '#FFD700', '#FF4500', '#00FF00', '#9370DB'];
     
-    for (let i = 0; i < 8; i++) {
+    // 根據性能模式調整聚光燈數量
+    const spotlightCount = this.performanceMode === 'medium' ? 4 : 8;
+    
+    for (let i = 0; i < spotlightCount; i++) {
       this.spotlights.push({
-        x: (i / 7) * this.CANVAS_WIDTH,
+        x: (i / (spotlightCount - 1)) * this.CANVAS_WIDTH,
         y: -50,
         radius: 60 + Math.random() * 40,
         color: spotlightColors[Math.floor(Math.random() * spotlightColors.length)],
@@ -2930,11 +3039,13 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     // 設置節拍效果定時器（模擬音樂節拍）
+    // 中等性能模式降低節拍頻率
+    const beatInterval = this.performanceMode === 'medium' ? 800 : 500;
     this.beatInterval = setInterval(() => {
       this.triggerBeatEffect();
-    }, 500); // 每500毫秒一次節拍（120 BPM）
+    }, beatInterval);
     
-    console.log('🎪 演唱會燈光系統啟動！');
+    console.log(`🎪 演唱會燈光系統啟動！(${spotlightCount}個聚光燈)`);
   }
   
   // 更新演唱會燈光
@@ -3192,5 +3303,39 @@ export class HomePage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('❌ 停止背景音樂失敗:', error);
     }
+  }
+  
+  // 簡化版玩家繪製（低性能模式）
+  private drawPlayerSimple(x: number, y: number, width: number, height: number, centerX: number) {
+    // 簡單的吉他外形，減少複雜路徑和漸變
+    
+    // 琴身 - 簡單矩形
+    this.ctx.fillStyle = '#C0C0C0'; // 銀色
+    this.ctx.fillRect(x, y + height * 0.4, width, height * 0.5);
+    
+    // 琴頸 - 簡單矩形
+    this.ctx.fillStyle = '#8A8A8A';
+    this.ctx.fillRect(centerX - width * 0.1, y, width * 0.2, height * 0.4);
+    
+    // 琴頭 - 簡單三角形
+    this.ctx.fillStyle = '#B0B0B0';
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX - width * 0.15, y);
+    this.ctx.lineTo(centerX + width * 0.15, y);
+    this.ctx.lineTo(centerX, y - height * 0.1);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    // 簡單的拾音器（3條線）
+    this.ctx.strokeStyle = '#4A4A4A';
+    this.ctx.lineWidth = 2;
+    const pickupY = [0.5, 0.6, 0.7];
+    pickupY.forEach(ratio => {
+      const py = y + height * ratio;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + width * 0.3, py);
+      this.ctx.lineTo(x + width * 0.7, py);
+      this.ctx.stroke();
+    });
   }
 }
